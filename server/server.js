@@ -26,7 +26,8 @@ io.on('connection', (socket) => {
         x: 400,
         y: 300,
         playerId: socket.id,
-        color: Math.random() * 0xffffff
+        color: Math.random() * 0xffffff,
+        isReady: false
     };
 
     // Send current players to the new player
@@ -38,7 +39,24 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.id}`);
         delete players[socket.id];
-        io.emit('disconnect', socket.id);
+        io.emit('playerDisconnected', socket.id);
+    });
+
+    // Handle player ready
+    socket.on('playerReady', () => {
+        if (players[socket.id]) {
+            players[socket.id].isReady = !players[socket.id].isReady;
+            io.emit('playerUpdate', players[socket.id]);
+
+            const allReady = Object.values(players).every(p => p.isReady);
+            if (Object.keys(players).length > 0 && allReady) {
+                io.emit('startGame');
+            }
+        }
+    });
+
+    socket.on('joinGame', () => {
+        socket.emit('currentPlayers', players);
     });
 
     // Handle player movement

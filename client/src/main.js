@@ -1,8 +1,10 @@
 import Phaser from 'phaser';
 import BootScene from './scenes/BootScene';
 import PreloaderScene from './scenes/PreloaderScene';
+import TitleScene from './scenes/TitleScene';
 import LobbyScene from './scenes/LobbyScene';
 import GameScene from './scenes/GameScene';
+import UI_Scene from './scenes/UI_Scene';
 
 const config = {
     type: Phaser.AUTO,
@@ -18,14 +20,18 @@ const config = {
         }
     },
     scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH
+        mode: Phaser.Scale.RESIZE,
+        autoCenter: Phaser.Scale.NO_CENTER,
+        width: '100%',
+        height: '100%'
     },
     scene: [
         BootScene,
         PreloaderScene,
+        TitleScene,
         LobbyScene,
-        GameScene
+        GameScene,
+        UI_Scene
     ]
 };
 
