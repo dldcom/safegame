@@ -7,6 +7,7 @@ export default class LobbyScene extends Phaser.Scene {
     }
 
     create() {
+        this.scene.stop('UI_Scene');
         const { width, height } = this.scale;
 
         this.add.text(width / 2, 60, 'LOBBY', { fontSize: '64px', fontStyle: 'bold' }).setOrigin(0.5);

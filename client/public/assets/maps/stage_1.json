@@ -225,6 +225,18 @@
                  "width":0,
                  "x":770.968517183369,
                  "y":173.035328046143
+                }, 
+                {
+                 "height":0,
+                 "id":7,
+                 "name":"door_lock",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":812.258494337109,
+                 "y":1526.44903397735
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -233,7 +245,7 @@
          "y":0
         }],
  "nextlayerid":9,
- "nextobjectid":7,
+ "nextobjectid":8,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.11.2",

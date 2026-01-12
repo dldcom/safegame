@@ -16,40 +16,44 @@ export const STAGE_1_ITEMS = {
     },
     sink: {
         id: 'sink',
-        name: '세면대',
+        name: '수돗물',
         type: 'cool',
         isValid: true,
-        description: '흐르는 물로 화상 부위를 충분히 식혀야 해.'
+        description: '흐르는 차가운 수돗물이야. 화상 부위의 열기를 식히기에 가장 좋아.'
     },
 
     // 2. 잘못된 처치 아이템 (함정)
     ice_pack: {
         id: 'ice_pack',
         name: '얼음팩',
-        type: 'cool',
+        type: 'bad',
         isValid: false,
-        penaltyMsg: '얼음을 직접대면 혈관이 수축해서 상처가 더 깊어질 수 있어! 흐르는 물이 좋아.'
+        penaltyMsg: '얼음을 직접 대면 동상 위험이 있고 혈관이 수축해 회복을 늦춰!',
+        description: '차가운 얼음팩. 하지만 상처에 직접 대면 위험할 수도 있어.'
     },
     toothpaste: {
         id: 'toothpaste',
         name: '치약',
         type: 'bad',
         isValid: false,
-        penaltyMsg: '치약을 바르면 감염될 수 있고, 상처 상태를 확인하기 어려워져!'
+        penaltyMsg: '치약의 성분이 상처를 자극하고 감염을 일으킬 수 있어!',
+        description: '상쾌한 치약. 화상 부위의 열기를 식혀줄 것 같지만...'
     },
     doenjang: {
         id: 'doenjang',
         name: '된장',
         type: 'bad',
         isValid: false,
-        penaltyMsg: '된장을 바르는 건 미신이야! 세균 감염 위험이 매우 커.'
+        penaltyMsg: '된장을 바르면 세균 감염 위험이 있어! 절대 바르면 안 돼.',
+        description: '구수한 된장. 요리할 때는 좋지만 상처에 발라도 될까?'
     },
     needle: {
         id: 'needle',
         name: '바늘',
         type: 'bad',
         isValid: false,
-        penaltyMsg: '물집을 터뜨리면 안 돼! 물집은 상처를 보호하는 보호막 역할을 해.'
+        penaltyMsg: '물집을 터뜨리면 2차 감염의 위험이 높아져! 터뜨리지 마.',
+        description: '날카로운 바늘. 물집이 생겼을 때 터뜨려야 할까?'
     }
 };
 

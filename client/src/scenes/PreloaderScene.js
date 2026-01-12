@@ -43,9 +43,12 @@ export default class PreloaderScene extends Phaser.Scene {
         this.load.image('doenjang', stage1Path + 'doenjang.png');
         this.load.image('needle', stage1Path + 'needle.png');
 
-        // Stage 1 NPC States
         this.load.image('npc_hurt', stage1Path + 'npc_hurt.png');
         this.load.image('npc_recovered', stage1Path + 'npc_recovered.png');
+        this.load.image('npc_teacher', stage1Path + 'npc_teacher1.png');
+
+        // UI Assets
+        this.load.image('inventory_icon', 'assets/inventory.png');
     }
 
     create() {

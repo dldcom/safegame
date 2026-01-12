@@ -115,8 +115,11 @@ export default class DialogueBox extends Phaser.GameObjects.Container {
     }
 
     hide() {
-        this.visible = false;
-        this.nextIcon.setVisible(false);
-        if (this.timedEvent) this.timedEvent.remove();
+        if (this.visible) {
+            this.visible = false;
+            this.nextIcon.setVisible(false);
+            if (this.timedEvent) this.timedEvent.remove();
+            this.scene.events.emit('dialogueEnded');
+        }
     }
 }

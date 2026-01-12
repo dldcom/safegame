@@ -6,6 +6,8 @@ export default class TitleScene extends Phaser.Scene {
     }
 
     create() {
+        this.scene.stop('UI_Scene'); // Ensure UI is hidden in Lobby
+
         // Simple Title Screen
         this.add.text(this.cameras.main.centerX, this.cameras.main.centerY - 50, 'Safety Game', {
             fontSize: '48px',
