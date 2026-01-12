@@ -81,6 +81,9 @@ export default class GameScene extends Phaser.Scene {
         this.events.on('uiDialogueEnded', () => {
             if (this.dialogueQueue.length > 0) {
                 this.showNextDialogue();
+            } else if (this.pendingQuiz) {
+                this.pendingQuiz = false;
+                this.events.emit('openQuiz', STAGE_1_QUIZ);
             } else if (this.isWaitingForInventory) {
                 this.isWaitingForInventory = false;
                 this.isUIOpen = true;
@@ -179,7 +182,8 @@ export default class GameScene extends Phaser.Scene {
             if (this.currentStep >= MISSION_STEPS.STEP_3_REPORTED) {
                 this.teacherNpc.speak("이제 다음 방으로 넘어가봐!");
             } else if (this.currentStep >= MISSION_STEPS.STEP_2_PROTECTED) {
-                this.events.emit('openQuiz', STAGE_1_QUIZ);
+                this.teacherNpc.speak("다친 친구를 잘 도와주었구나! \n정말 잘했어. 마지막으로 간단한 안전 퀴즈를 풀어볼까?");
+                this.pendingQuiz = true;
             } else {
                 this.teacherNpc.speak("아직 치료가 끝나지 않았어. 다친 친구를 도와주고 오렴.");
             }

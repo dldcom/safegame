@@ -195,6 +195,8 @@ export default class UI_Scene extends Phaser.Scene {
     }
 
     handleInteraction() {
+        if (!this.canInput) return; // Prevent input during cooldown
+
         if (document.getElementById('quiz-modal')) {
             const retryBtn = document.querySelector('#quiz-feedback button');
             if (retryBtn) {
@@ -353,6 +355,11 @@ export default class UI_Scene extends Phaser.Scene {
 
     createQuizModal() {
         if (document.getElementById('quiz-modal')) return;
+
+        // Input cooldown to prevent accidental selection from dialogue 
+        this.canInput = false;
+        this.time.delayedCall(500, () => { this.canInput = true; });
+
         const modal = document.createElement('div');
         modal.id = 'quiz-modal';
         modal.className = 'modal-overlay quiz-modal';
