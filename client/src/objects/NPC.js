@@ -3,13 +3,11 @@ import Phaser from 'phaser';
 export default class NPC extends Phaser.Physics.Arcade.Sprite {
     static createAnimations(scene) {
         if (!scene.anims.exists('npc_up')) {
-            // 4 rows, 9 columns (0~8). Frame 40 not found error confirmed max frame is around 35.
             const generateFrames = (row) => {
                 const startFrame = row * 9;
                 return scene.anims.generateFrameNumbers('princess', { start: startFrame + 1, end: startFrame + 8 });
             };
 
-            // LPC Order: Up(0), Left(1), Down(2), Right(3)
             scene.anims.create({ key: 'npc_up', frames: generateFrames(0), frameRate: 10, repeat: -1 });
             scene.anims.create({ key: 'npc_left', frames: generateFrames(1), frameRate: 10, repeat: -1 });
             scene.anims.create({ key: 'npc_down', frames: generateFrames(2), frameRate: 10, repeat: -1 });
@@ -17,82 +15,85 @@ export default class NPC extends Phaser.Physics.Arcade.Sprite {
         }
     }
 
-    constructor(scene, x, y, texture) {
+    constructor(scene, x, y, texture, options = {}) {
         super(scene, x, y, texture);
         scene.add.existing(this);
         scene.physics.add.existing(this);
 
-        this.setScale(1); // LPC sprites are already big (64x64)
-        this.setDepth(5); // Make visible above ground
-        this.setCollideWorldBounds(true);
-        this.setImmovable(true); // Player cannot push NPC
-        this.body.setSize(20, 20); // Small hitbox at feet
-        this.body.setOffset(22, 44);
+        this.type = options.type || 'static'; // 'static' or 'moving'
+        this.displayName = options.displayName || 'NPC';
+
+        this.setupPhysics();
 
         this.moveTimer = 0;
-        this.moveDirection = 0; // 0: stop, 1: up, 2: down, 3: left, 4: right
-        this.speed = 50;
+        this.moveDirection = 0;
+        this.speed = options.speed || 50;
         this.talkCooldown = 0;
 
-        // Start idle
-        this.play('npc_down');
-        this.stop();
+        // Default look
+        if (texture === 'princess') {
+            this.play('npc_down');
+            this.stop();
+        }
+    }
+
+    setupPhysics() {
+        this.setDepth(5);
+        this.setImmovable(true);
+        this.setCollideWorldBounds(true);
+
+        // Default hitbox for 64x64 LPC sprites
+        this.body.setSize(20, 20);
+        this.body.setOffset(22, 44);
     }
 
     update(time, delta) {
-        // Dialogue Cooldown
-        if (this.talkCooldown > 0) {
-            this.talkCooldown -= delta;
-        }
+        if (this.talkCooldown > 0) this.talkCooldown -= delta;
+        if (this.type !== 'moving') return;
 
-        // Random Movement Logic
         this.moveTimer -= delta;
         if (this.moveTimer <= 0) {
             this.changeDirection();
-            this.moveTimer = Phaser.Math.Between(1000, 3000); // Change direction every 1-3 sec
+            this.moveTimer = Phaser.Math.Between(1000, 3000);
         }
 
-        // Apply Movement
+        this.applyMovement();
+    }
+
+    applyMovement() {
         const body = this.body;
         body.setVelocity(0);
 
+        const animPrefix = this.texture.key === 'princess' ? 'npc_' : null;
+
         if (this.moveDirection === 1) { // Up
             body.setVelocityY(-this.speed);
-            this.anims.play('npc_up', true);
+            if (animPrefix) this.anims.play(animPrefix + 'up', true);
         } else if (this.moveDirection === 2) { // Down
             body.setVelocityY(this.speed);
-            this.anims.play('npc_down', true);
+            if (animPrefix) this.anims.play(animPrefix + 'down', true);
         } else if (this.moveDirection === 3) { // Left
             body.setVelocityX(-this.speed);
-            this.anims.play('npc_left', true);
+            if (animPrefix) this.anims.play(animPrefix + 'left', true);
         } else if (this.moveDirection === 4) { // Right
             body.setVelocityX(this.speed);
-            this.anims.play('npc_right', true);
+            if (animPrefix) this.anims.play(animPrefix + 'right', true);
         } else {
             this.anims.stop();
         }
     }
 
     changeDirection() {
-        // 40% chance to stop, 60% chance to move
-        if (Math.random() < 0.4) {
-            this.moveDirection = 0;
-        } else {
-            this.moveDirection = Phaser.Math.Between(1, 4);
-        }
+        this.moveDirection = Math.random() < 0.4 ? 0 : Phaser.Math.Between(1, 4);
     }
 
-    speak() {
+    speak(message) {
         if (this.talkCooldown <= 0) {
-            // Stop moving while talking
             this.moveDirection = 0;
             this.body.setVelocity(0);
             this.anims.stop();
 
-            // Trigger Dialogue
-            this.scene.events.emit('showDialogue', "어서 와! 여기는 안전 마을이야.\n과열된 콘센트를 끄려면 소화기가 필요해.\n북동쪽(오른쪽 위) 구석을 한번 찾아볼래?", "안전 지킴이");
-
-            // Set cooldown (e.g., 3 seconds)
+            this.scene.events.emit('showDialogue', message, this.displayName);
             this.talkCooldown = 3000;
         }
     }

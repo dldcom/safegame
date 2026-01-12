@@ -2,88 +2,88 @@ import Phaser from 'phaser';
 
 export default class Player extends Phaser.Physics.Arcade.Sprite {
     static createAnimations(scene) {
-        // Create animations if they don't exist yet
         if (!scene.anims.exists('anim_down')) {
-            scene.anims.create({
-                key: 'anim_down',
-                frames: scene.anims.generateFrameNumbers('character', { frames: [0, 1, 2, 1] }),
-                frameRate: 8,
-                repeat: -1
+            const configs = [
+                { key: 'anim_down', frames: [0, 1, 2, 1] },
+                { key: 'anim_left', frames: [3, 4, 5, 4] },
+                { key: 'anim_right', frames: [6, 7, 8, 7] },
+                { key: 'anim_up', frames: [9, 10, 11, 10] }
+            ];
+
+            configs.forEach(config => {
+                scene.anims.create({
+                    key: config.key,
+                    frames: scene.anims.generateFrameNumbers('character', { frames: config.frames }),
+                    frameRate: 8,
+                    repeat: -1
+                });
             });
-            scene.anims.create({
-                key: 'anim_left',
-                frames: scene.anims.generateFrameNumbers('character', { frames: [3, 4, 5, 4] }),
-                frameRate: 8,
-                repeat: -1
-            });
-            scene.anims.create({
-                key: 'anim_right',
-                frames: scene.anims.generateFrameNumbers('character', { frames: [6, 7, 8, 7] }),
-                frameRate: 8,
-                repeat: -1
-            });
-            scene.anims.create({
-                key: 'anim_up',
-                frames: scene.anims.generateFrameNumbers('character', { frames: [9, 10, 11, 10] }),
-                frameRate: 8,
-                repeat: -1
-            });
-            console.log("Player animations created via Player class");
+            console.log("Player animations created");
         }
     }
 
-    constructor(scene, x, y, texture) {
+    constructor(scene, x, y, texture, isMyPlayer = false) {
         super(scene, x, y, texture);
 
         scene.add.existing(this);
         scene.physics.add.existing(this);
 
+        this.isMyPlayer = isMyPlayer;
+        this.speed = 300;
+        this.oldPosition = { x: x, y: y };
+
+        this.setupPhysics();
+    }
+
+    setupPhysics() {
         this.setScale(2);
         this.setDepth(5);
         this.setCollideWorldBounds(true);
 
-        // Hitbox
-        this.body.setSize(16, 20); // 2x scaled visual -> 32x40 body. Adjusted for small hitbox
-        this.body.setOffset(8, 6); // To center
-
-        this.isMyPlayer = false;
-        this.speed = 300;
-        this.oldPosition = { x: x, y: y };
+        // Centralized Hitbox Configuration
+        this.body.setSize(16, 20);
+        this.body.setOffset(8, 6);
     }
 
-    update(cursors) {
+    update(cursors, joystick) {
         if (!this.isMyPlayer) return;
 
         const body = this.body;
         let moved = false;
+        let vx = 0;
+        let vy = 0;
 
-        body.setVelocity(0);
+        // 1. Check Keyboard
+        if (cursors) {
+            if (cursors.left.isDown) vx = -this.speed;
+            else if (cursors.right.isDown) vx = this.speed;
 
-        if (cursors.left.isDown) {
-            body.setVelocityX(-this.speed);
-            this.anims.play('anim_left', true);
-            moved = true;
-        } else if (cursors.right.isDown) {
-            body.setVelocityX(this.speed);
-            this.anims.play('anim_right', true);
-            moved = true;
+            if (cursors.up.isDown) vy = -this.speed;
+            else if (cursors.down.isDown) vy = this.speed;
         }
 
-        if (cursors.up.isDown) {
-            body.setVelocityY(-this.speed);
-            if (!cursors.left.isDown && !cursors.right.isDown) {
-                this.anims.play('anim_up', true);
-            }
-            moved = true;
-        } else if (cursors.down.isDown) {
-            body.setVelocityY(this.speed);
-            if (!cursors.left.isDown && !cursors.right.isDown) {
-                this.anims.play('anim_down', true);
-            }
-            moved = true;
+        // 2. Check Joystick (if no keyboard input)
+        if (vx === 0 && vy === 0 && joystick && joystick.active) {
+            vx = joystick.forceX * this.speed;
+            vy = joystick.forceY * this.speed;
         }
 
-        body.velocity.normalize().scale(this.speed);
+        body.setVelocity(vx, vy);
+
+        if (vx !== 0 || vy !== 0) {
+            moved = true;
+            // Normalize for diagonal movement
+            body.velocity.normalize().scale(this.speed);
+
+            // Set Animations based on dominant direction
+            if (Math.abs(vx) > Math.abs(vy)) {
+                if (vx < 0) this.anims.play('anim_left', true);
+                else this.anims.play('anim_right', true);
+            } else {
+                if (vy < 0) this.anims.play('anim_up', true);
+                else this.anims.play('anim_down', true);
+            }
+        }
 
         if (!moved) {
             this.anims.stop();

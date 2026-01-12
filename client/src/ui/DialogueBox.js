@@ -65,22 +65,24 @@ export default class DialogueBox extends Phaser.GameObjects.Container {
         this.setScrollFactor(0); // 카메라 움직임 무시 (HUD)
         this.setDepth(100);      // 제일 위에 표시
 
-        // Key Interaction
+        // Interaction Logic (Keyboard & Event)
         this.isTyping = false;
-        scene.input.keyboard.on('keydown-SPACE', () => {
+
+        const advance = () => {
             if (!this.visible) return;
 
             if (this.isTyping) {
-                // Skip typing
                 if (this.timedEvent) this.timedEvent.remove();
                 this.messageText.setText(this.fullText);
                 this.isTyping = false;
-                this.nextIcon.setVisible(true); // Show icon when skipped
+                this.nextIcon.setVisible(true);
             } else {
-                // Close dialogue
                 this.hide();
             }
-        });
+        };
+
+        scene.input.keyboard.on('keydown-SPACE', advance);
+        scene.events.on('advanceDialogue', advance);
     }
 
     // Show dialogue
