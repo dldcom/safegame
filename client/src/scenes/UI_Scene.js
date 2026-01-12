@@ -46,13 +46,16 @@ export default class UI_Scene extends Phaser.Scene {
                     this.tweens.add({ targets: this.uiElements.inventoryBtn, scale: 0.9, duration: 100, yoyo: true });
                 }
             });
-            gameScene.events.on('showDialogue', (t, n) => this.dialogueBox.show(t, n));
-            gameScene.events.on('hideDialogue', () => this.dialogueBox.hide());
+            gameScene.events.on('showDialogue', (t, n) => {
+                this.dialogueBox.show(t, n);
+                this.toggleJoystick(false);
+            });
             gameScene.events.on('openItemSelector', (data) => this.createItemSelector(data.inventory, data.callbackEvent, "사용할 아이템을 선택하세요"));
             gameScene.events.on('openQuiz', (quizData) => this.startQuiz(quizData));
         }
 
         this.events.on('dialogueEnded', () => {
+            this.toggleJoystick(true);
             const gameScene = this.scene.get('GameScene');
             if (gameScene) gameScene.events.emit('uiDialogueEnded');
         });
@@ -66,7 +69,7 @@ export default class UI_Scene extends Phaser.Scene {
     handleResize() {
         const { width, height } = this.scale;
 
-        // Joystick (Fixed position relative to bottom-left)
+        // Joystick
         if (this.uiElements.joystickBase) {
             const jX = 120;
             const jY = height - 120;
@@ -77,7 +80,7 @@ export default class UI_Scene extends Phaser.Scene {
             this.uiElements.joystickHit.setPosition(jX, jY);
         }
 
-        // Action Button (Fixed position relative to bottom-right)
+        // Action Button
         if (this.uiElements.actionBtn) {
             const aX = width - 100;
             const aY = height - 100;
@@ -92,10 +95,16 @@ export default class UI_Scene extends Phaser.Scene {
             this.uiElements.inventoryText.setPosition(iX, 80);
         }
 
-        // Dialogue Box (Centered Bottom)
+        // Dialogue Box (Moved to Top Area for Mobile)
         if (this.dialogueBox) {
-            this.dialogueBox.setPosition(50, height - 150 - 20);
+            this.dialogueBox.setPosition(50, 110);
         }
+    }
+
+    toggleJoystick(visible) {
+        if (this.uiElements.joystickBase) this.uiElements.joystickBase.setVisible(visible);
+        if (this.uiElements.joystickThumb) this.uiElements.joystickThumb.setVisible(visible);
+        if (this.uiElements.joystickHit) this.uiElements.joystickHit.setVisible(visible);
     }
 
     createActionButton() {

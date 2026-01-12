@@ -19,7 +19,7 @@ const config = {
         default: 'arcade',
         arcade: {
             gravity: { y: 0 }, // Top-down game, no gravity
-            debug: true // Enable debug to see hitboxes
+            debug: false // Disable debug to hide hitboxes
         }
     },
     scale: {

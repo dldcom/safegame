@@ -137,8 +137,8 @@ export default class GameScene extends Phaser.Scene {
                         this.sink = this.physics.add.sprite(obj.x, obj.y, 'sink').setImmovable(true);
                         break;
                     case 'door_lock':
-                        // Shift down (+48px) to move out of the wall tile if placed too high
-                        this.teacherNpc = new NPC(this, obj.x, obj.y + 48, 'npc_teacher', { displayName: '보건 선생님' });
+                        // Shift UP (-80px) to move out of the bottom wall tile
+                        this.teacherNpc = new NPC(this, obj.x, obj.y - 80, 'npc_teacher', { displayName: '보건 선생님' });
                         break;
                 }
             });
