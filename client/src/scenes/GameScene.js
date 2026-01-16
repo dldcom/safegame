@@ -4,6 +4,7 @@ import Player from '../objects/Player';
 import NPC from '../objects/NPC';
 import Collectible from '../objects/Collectibles';
 import { STAGE_1_ITEMS, MISSION_STEPS, STAGE_1_QUIZ } from '../data/Stage1Data';
+import useGameStore, { isUIOpen } from '../store/useGameStore';
 
 export default class GameScene extends Phaser.Scene {
     constructor() {
@@ -15,7 +16,6 @@ export default class GameScene extends Phaser.Scene {
         this.inventory = [];
         this.currentStep = MISSION_STEPS.STEP_0_START;
         this.hearts = 3;
-        this.isUIOpen = false;
         this.dialogueQueue = [];
         this.isWaitingForInventory = false;
         this.initialPlayerPos = { x: 100, y: 450 };
@@ -34,9 +34,6 @@ export default class GameScene extends Phaser.Scene {
         this.setupAnimations();
         this.spawnObjects(map);
         this.setupNetwork();
-
-        this.add.text(20, 20, 'Safety Game - Mission: Find Fire Hazards', { fontSize: '20px', fill: '#ffffff' })
-            .setScrollFactor(0).setDepth(20);
 
         this.scene.launch('UI_Scene');
         this.startIntroSequence();
@@ -86,19 +83,19 @@ export default class GameScene extends Phaser.Scene {
                 this.events.emit('openQuiz', STAGE_1_QUIZ);
             } else if (this.isWaitingForInventory) {
                 this.isWaitingForInventory = false;
-                this.isUIOpen = true;
                 this.events.emit('openItemSelector', {
                     inventory: this.inventory,
                     callbackEvent: 'useItem'
                 });
-            } else {
-                this.isUIOpen = !!(document.getElementById('item-modal') || document.getElementById('quiz-modal'));
             }
         });
 
         this.events.on('showDialogue', () => {
-            this.isUIOpen = true;
             if (this.player) this.player.setVelocity(0);
+        });
+
+        this.events.on('useItem', (itemId) => {
+            this.handleItemUse(itemId);
         });
 
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -166,7 +163,7 @@ export default class GameScene extends Phaser.Scene {
         });
 
         this.physics.add.collider(this.player, this.injuredNpc, () => {
-            if (this.isUIOpen) return;
+            if (isUIOpen(useGameStore.getState())) return;
             if (this.currentStep >= MISSION_STEPS.STEP_2_PROTECTED) {
                 this.injuredNpc.speak('와 상처가 다 나았어! 고마워! 보건 선생님께 가봐!');
             } else if (this.inventory.length === 0) {
@@ -178,7 +175,7 @@ export default class GameScene extends Phaser.Scene {
         });
 
         this.physics.add.collider(this.player, this.teacherNpc, () => {
-            if (this.isUIOpen) return;
+            if (isUIOpen(useGameStore.getState())) return;
             if (this.currentStep >= MISSION_STEPS.STEP_3_REPORTED) {
                 this.teacherNpc.speak("이제 다음 방으로 넘어가봐!");
             } else if (this.currentStep >= MISSION_STEPS.STEP_2_PROTECTED) {
@@ -236,6 +233,11 @@ export default class GameScene extends Phaser.Scene {
             if (this.currentStep === MISSION_STEPS.STEP_1_COOLED) {
                 this.currentStep = MISSION_STEPS.STEP_2_PROTECTED;
                 this.events.emit('showDialogue', "완벽해! 깨끗한 거즈로 상처를 잘 감쌌어.\n이제 보건 선생님께 가보자.", "미션 완료!");
+
+                // Change NPC appearance to recovered
+                if (this.injuredNpc) {
+                    this.injuredNpc.setTexture('npc_recovered');
+                }
             } else if (this.currentStep === MISSION_STEPS.STEP_0_START) {
                 this.hearts--;
                 this.events.emit('updateHearts', this.hearts);
@@ -278,7 +280,7 @@ export default class GameScene extends Phaser.Scene {
         [this.npc, this.injuredNpc, this.teacherNpc].forEach(n => n?.update(time, delta));
 
         if (this.player && this.player.body && this.cursors) {
-            if (this.isUIOpen) {
+            if (isUIOpen(useGameStore.getState())) {
                 this.player.setVelocity(0).anims.stop();
                 return;
             }

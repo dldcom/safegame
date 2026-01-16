@@ -1,9 +1,8 @@
 import { defineConfig } from 'vite';
-import path from 'path';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  // root defaults to current working directory
-  // publicDir defaults to 'public'
+  plugins: [react()],
   server: {
     port: 3000,
     proxy: {
@@ -14,7 +13,7 @@ export default defineConfig({
     }
   },
   build: {
-    outDir: '../dist', // Build to root dist folder or keep it local? Let's keep it local 'dist' for now as per previous, or user might prefer root dist. Standard is local dist. Let's stick to 'dist'.
+    outDir: 'dist',
     emptyOutDir: true
   }
 });
