@@ -4,7 +4,9 @@ body {
     padding: 0;
     overflow: hidden;
     background-color: #222;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Galmuri11', sans-serif;
+    image-rendering: pixelated;
+    /* Essential for pixel-art feel */
 }
 
 #game-container {
@@ -18,18 +20,31 @@ body {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 420px;
-    background: rgba(20, 20, 30, 0.85);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 16px;
+    width: 500px;
+    background: #000080;
+    /* Classic RPG Blue */
+    border: 4px solid #ffffff;
+    outline: 2px solid #000000;
+    border-radius: 0;
     padding: 24px;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    box-shadow: 10px 10px 0px rgba(0, 0, 0, 0.5);
     color: white;
     text-align: center;
-    z-index: 1000;
-    animation: fadeInUp 0.3s ease-out;
+    z-index: 2000;
+    animation: fadeInUp 0.2s ease-out;
+    pointer-events: auto;
+    position: relative;
+}
+
+.modal-overlay::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    right: 2px;
+    bottom: 2px;
+    border: 2px solid #aaaaaa;
+    pointer-events: none;
 }
 
 @keyframes fadeInUp {
@@ -47,12 +62,11 @@ body {
 /* Modal Title */
 .modal-title {
     margin: 0 0 20px 0;
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #e0e0e0;
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #ffd700;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 2px solid #ffffff;
     padding-bottom: 10px;
 }
 
@@ -81,13 +95,13 @@ body {
 
 /* Item Button */
 .item-btn {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 2px solid #ffffff;
+    border-radius: 0;
     padding: 15px;
     color: #fff;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.1s ease;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -96,14 +110,14 @@ body {
 }
 
 .item-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 215, 0, 0.2);
+    border-color: #ffd700;
+    transform: translate(-2px, -2px);
+    box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.3);
 }
 
 .item-btn:active {
-    transform: translateY(0);
+    transform: translate(2px, 2px);
 }
 
 /* Keyboard Focus Style */
@@ -134,20 +148,23 @@ body {
 
 /* Close Button */
 .close-btn {
-    background: #ff4757;
-    color: white;
-    border: none;
+    background: #ffffff;
+    color: #000000;
+    border: 3px solid #000000;
     padding: 10px 24px;
-    border-radius: 20px;
-    font-size: 0.9rem;
-    font-weight: 600;
+    border-radius: 0;
+    font-size: 1rem;
+    font-weight: bold;
     cursor: pointer;
-    transition: background 0.2s;
-    box-shadow: 0 2px 8px rgba(255, 71, 87, 0.4);
+    transition: all 0.1s;
+    box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5);
+    margin-top: 10px;
 }
 
 .close-btn:hover {
-    background: #ff6b81;
+    background: #ff4757;
+    color: white;
+    transform: translate(-2px, -2px);
 }
 
 /* Quiz Modal Specifics */
@@ -245,29 +262,30 @@ body {
     position: absolute;
     top: 20px;
     right: 20px;
-    background: rgba(30, 30, 50, 0.7);
-    padding: 12px 20px;
-    border-radius: 50px;
+    background: #000080;
+    /* Classic RPG Blue */
+    padding: 10px 20px;
+    border-radius: 0;
     color: white;
     cursor: pointer;
     pointer-events: auto;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(10px);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border: 3px solid #ffffff;
+    outline: 2px solid #000000;
+    box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.5);
+    transition: all 0.1s;
     user-select: none;
     z-index: 100;
 }
 
 .hud-inventory-btn:hover {
-    background: rgba(50, 50, 80, 0.8);
-    transform: scale(1.05) translateY(-2px);
-    border-color: rgba(255, 255, 255, 0.3);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    background: #0000aa;
+    transform: translate(-2px, -2px);
+    box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.5);
 }
 
 .hud-inventory-btn:active {
-    transform: scale(0.95);
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.5);
 }
 
 .hud-action-btn {
@@ -284,38 +302,66 @@ body {
 .action-btn-inner {
     width: 100%;
     height: 100%;
-    background: radial-gradient(circle at 30% 30%, #ff4b2b, #ff416c);
-    border-radius: 50%;
+    background: #ff4757;
+    border: 4px solid #ffffff;
+    outline: 2px solid #000000;
+    border-radius: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
-    font-size: 40px;
+    font-size: 44px;
     font-weight: 900;
-    box-shadow: 0 10px 0 #b32a1e, 0 15px 25px rgba(0, 0, 0, 0.4);
+    box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.5);
     transition: all 0.1s;
     user-select: none;
-    border: 4px solid rgba(255, 255, 255, 0.2);
+}
+
+.hud-action-btn:hover .action-btn-inner {
+    background: #ff6b81;
+    transform: translate(-3px, -3px);
+    box-shadow: 11px 11px 0px rgba(0, 0, 0, 0.5);
 }
 
 .hud-action-btn:active .action-btn-inner {
-    transform: translateY(8px);
-    box-shadow: 0 2px 0 #b32a1e, 0 5px 15px rgba(0, 0, 0, 0.4);
+    transform: translate(3px, 3px);
+    box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.5);
 }
 
 .react-dialogue-box {
     position: absolute;
-    top: 110px;
-    /* Same as Phaser's new top position */
-    left: 50px;
-    right: 50px;
-    background: rgba(0, 0, 0, 0.85);
-    border: 2px solid white;
-    border-radius: 15px;
-    padding: 20px;
+    top: 20px;
+    left: 40px;
+    right: 40px;
+    background: #000080;
+    /* Classic RPG Blue */
+    border: 4px solid #ffffff;
+    outline: 2px solid #000000;
+    border-radius: 0;
+    padding: 24px;
+    box-shadow: 10px 10px 0px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: block;
+    /* Switch from flex to block to fix text issues */
+    min-height: 120px;
     color: white;
+    /* Ensure text is visible */
     pointer-events: auto;
+    /* Ensure skip clicks work */
 }
+
+.react-dialogue-box::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    right: 2px;
+    bottom: 2px;
+    border: 2px solid #aaaaaa;
+    pointer-events: none;
+}
+
+
 
 .dialogue-name {
     color: #ffd700;
@@ -327,6 +373,9 @@ body {
 .dialogue-text {
     font-size: 20px;
     line-height: 1.5;
+    white-space: pre-wrap;
+    /* Support newlines */
+    word-break: break-all;
 }
 
 @keyframes slideDown {
@@ -366,6 +415,171 @@ body {
     color: #aaa;
     font-style: italic;
     text-align: right;
+}
+
+.dialogue-hint.skip {
+    color: #ffd700;
+    opacity: 0.7;
+}
+
+.typing-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1.2em;
+    background-color: #ffd700;
+    margin-left: 2px;
+    animation: blink 0.8s infinite;
+    vertical-align: middle;
+}
+
+@keyframes blink {
+    50% {
+        opacity: 0;
+    }
+}
+
+/* Lobby Styles */
+.lobby-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at center, #1a1a2e 0%, #0f0f1a 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 6000;
+    pointer-events: auto;
+    /* Enable interaction */
+}
+
+.lobby-container {
+    width: 600px;
+    background: #000080;
+    /* Classic RPG Blue Background */
+    border: 4px solid #ffffff;
+    outline: 2px solid #000000;
+    border-radius: 0;
+    /* Sharp corners */
+    padding: 40px;
+    box-shadow: 10px 10px 0px rgba(0, 0, 0, 0.5);
+    text-align: center;
+    position: relative;
+}
+
+/* Double border effect for classic RPG feel */
+.lobby-container::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    right: 2px;
+    bottom: 2px;
+    border: 2px solid #aaaaaa;
+    pointer-events: none;
+}
+
+.lobby-title {
+    font-size: 3rem;
+    color: #fff;
+    margin-bottom: 5px;
+    text-shadow: 4px 4px 0px rgba(0, 0, 0, 0.8), 0 0 20px rgba(74, 144, 226, 0.4);
+    letter-spacing: -2px;
+}
+
+.lobby-subtitle {
+    color: #ffd700;
+    /* Gold for a more classic feel */
+    margin-bottom: 30px;
+    font-size: 1.1rem;
+    opacity: 0.9;
+}
+
+.player-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-bottom: 40px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.player-card {
+    background: rgba(0, 0, 0, 0.3);
+    border: 2px solid #ffffff;
+    border-radius: 0;
+    padding: 15px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    transition: all 0.1s ease;
+}
+
+.player-card.ready {
+    background: rgba(46, 204, 113, 0.3);
+    border-color: #2ecc71;
+    box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.3);
+}
+
+.player-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 0;
+    border: 2px solid #ffffff;
+    image-rendering: pixelated;
+}
+
+.player-info {
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+}
+
+.player-id {
+    color: #eee;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.ready-status {
+    font-size: 0.75rem;
+    font-weight: 800;
+}
+
+.status-ready {
+    color: #2ecc71;
+}
+
+.status-waiting {
+    color: #888;
+}
+
+.ready-btn {
+    background: #ffffff;
+    color: #000000;
+    border: 4px solid #000000;
+    border-radius: 0;
+    padding: 15px 50px;
+    font-size: 1.4rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.8);
+    transition: all 0.1s;
+    user-select: none;
+}
+
+.ready-btn:hover {
+    background: #ffd700;
+    /* Classic Gold highlight */
+    transform: translate(-2px, -2px);
+    box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.8);
+}
+
+.ready-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.8);
 }
 
 .dialogue-hint.skip {

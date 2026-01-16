@@ -159,7 +159,8 @@ export default class GameScene extends Phaser.Scene {
 
         // NPC Collisions
         this.physics.add.collider(this.player, this.npc, () => {
-            this.npc.speak("북동쪽 구석에서 소화기를 찾아봐!");
+            if (isUIOpen(useGameStore.getState())) return;
+            this.npc.speak("반가워! 복도 끝 교실에 다친 친구가 있어.\n얼른 가서 친구를 도와주고, 올바른 응급처치를 해줘!");
         });
 
         this.physics.add.collider(this.player, this.injuredNpc, () => {

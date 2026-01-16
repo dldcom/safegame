@@ -18,6 +18,11 @@ const useGameStore = create((set) => ({
         title: '',
         callbackEvent: null
     },
+    lobby: {
+        isOpen: false, // Don't show until LobbyScene tells us to
+        players: []
+    },
+    gameStarted: false,
 
     setHearts: (count) => set({ hearts: count }),
     setInventory: (items) => set({ inventory: [...items] }),
@@ -39,6 +44,13 @@ const useGameStore = create((set) => ({
     closeInventoryModal: () => set({
         inventoryModal: { isOpen: false, items: [], title: '', callbackEvent: null }
     }),
+    setLobbyPlayers: (players) => set((state) => ({
+        lobby: { ...state.lobby, players }
+    })),
+    setLobbyOpen: (isOpen) => set((state) => ({
+        lobby: { ...state.lobby, isOpen }
+    })),
+    setGameStarted: (started) => set({ gameStarted: started })
 }));
 
 // Helper to check if any UI is blocking the game

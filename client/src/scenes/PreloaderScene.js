@@ -49,6 +49,7 @@ export default class PreloaderScene extends Phaser.Scene {
 
         // UI Assets
         this.load.image('inventory_icon', 'assets/inventory.png');
+        this.load.image('title_bg', 'assets/title_bg.png');
     }
 
     create() {
