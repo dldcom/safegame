@@ -4,6 +4,7 @@ import Player from '../objects/Player';
 import NPC from '../objects/NPC';
 import Collectible from '../objects/Collectibles';
 import { STAGE_1_ITEMS, MISSION_STEPS, STAGE_1_QUIZ } from '../data/Stage1Data';
+import { STAGE_2_ITEMS, STAGE_2_MISSION_STEPS, STAGE_2_QUIZ } from '../data/Stage2Data';
 import useGameStore, { isUIOpen } from '../store/useGameStore';
 
 export default class GameScene extends Phaser.Scene {
@@ -13,8 +14,10 @@ export default class GameScene extends Phaser.Scene {
     }
 
     resetState() {
+        const store = useGameStore.getState();
+        this.currentStage = store.stage || 1;
         this.inventory = [];
-        this.currentStep = MISSION_STEPS.STEP_0_START;
+        this.currentStep = (this.currentStage === 1) ? MISSION_STEPS.STEP_0_START : STAGE_2_MISSION_STEPS.STEP_0_START;
         this.hearts = 3;
         this.dialogueQueue = [];
         this.isWaitingForInventory = false;
@@ -23,6 +26,11 @@ export default class GameScene extends Phaser.Scene {
 
     init(data) {
         this.socket = data.socket;
+        // If coming from another scene and data.stage is provided, use it
+        if (data.stage) {
+            useGameStore.getState().setStage(data.stage);
+            this.resetState();
+        }
     }
 
     create() {
@@ -40,19 +48,34 @@ export default class GameScene extends Phaser.Scene {
     }
 
     setupMap() {
-        const map = this.make.tilemap({ key: 'stage_1' });
-        const tilesets = [
-            map.addTilesetImage('Wall', 'Wall'),
-            map.addTilesetImage('Floor2', 'Floor2'),
-            map.addTilesetImage('Exterior_Wall', 'Exterior_Wall')
-        ];
+        const mapKey = `stage_${this.currentStage}`;
+        const map = this.make.tilemap({ key: mapKey });
 
-        map.createLayer('background', tilesets, 0, 0);
-        this.wallLayer = map.createLayer('middleground', tilesets, 0, 0);
-        const foregroundLayer = map.createLayer('foreground', tilesets, 0, 0);
-
-        this.wallLayer.setDepth(1).setCollisionByExclusion([-1]);
-        foregroundLayer.setDepth(10);
+        let tilesets = [];
+        if (this.currentStage === 1) {
+            tilesets = [
+                map.addTilesetImage('Wall', 'Wall'),
+                map.addTilesetImage('Floor2', 'Floor2'),
+                map.addTilesetImage('Exterior_Wall', 'Exterior_Wall')
+            ];
+            map.createLayer('background', tilesets, 0, 0);
+            this.wallLayer = map.createLayer('middleground', tilesets, 0, 0);
+            const foregroundLayer = map.createLayer('foreground', tilesets, 0, 0);
+            this.wallLayer.setDepth(1).setCollisionByExclusion([-1]);
+            foregroundLayer.setDepth(10);
+        } else {
+            // Stage 2 Tilesets (Based on stage_2.json names)
+            tilesets = [
+                map.addTilesetImage('Floor', 'Floor2'),
+                map.addTilesetImage('Wall', 'Wall'),
+                map.addTilesetImage('Decor', 'Exterior_Decoration')
+            ];
+            map.createLayer('Background', tilesets, 0, 0);
+            this.wallLayer = map.createLayer('Middleground', tilesets, 0, 0);
+            const foregroundLayer = map.createLayer('Foreground', tilesets, 0, 0);
+            this.wallLayer.setDepth(1).setCollisionByExclusion([-1]);
+            foregroundLayer.setDepth(10);
+        }
 
         this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
@@ -71,6 +94,12 @@ export default class GameScene extends Phaser.Scene {
     }
 
     setupEvents() {
+        // Clear previous listeners to prevent double triggers on scene restart
+        this.events.off('completeMission');
+        this.events.off('uiDialogueEnded');
+        this.events.off('showDialogue');
+        this.events.off('useItem');
+
         this.events.on('completeMission', () => {
             this.currentStep = MISSION_STEPS.STEP_3_REPORTED;
         });
@@ -170,8 +199,9 @@ export default class GameScene extends Phaser.Scene {
             } else if (this.inventory.length === 0) {
                 this.injuredNpc.speak('뜨거운 물에 손이 데였어 너무 아파..');
             } else {
-                this.isWaitingForInventory = true;
-                this.injuredNpc.speak('나를 치료할 물건을 가져왔어? 그럼 사용해줘.');
+                if (this.injuredNpc.speak('나를 치료할 물건을 가져왔어? 그럼 사용해줘.')) {
+                    this.isWaitingForInventory = true;
+                }
             }
         });
 

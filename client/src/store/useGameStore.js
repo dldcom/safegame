@@ -23,7 +23,11 @@ const useGameStore = create((set) => ({
         players: []
     },
     gameStarted: false,
+    stage: 1,
+    oxygen: 100,
 
+    setStage: (stage) => set({ stage }),
+    setOxygen: (val) => set({ oxygen: val }),
     setHearts: (count) => set({ hearts: count }),
     setInventory: (items) => set({ inventory: [...items] }),
     showDialogue: (text, name = '') => set({
@@ -35,15 +39,15 @@ const useGameStore = create((set) => ({
     openQuiz: (quizData) => set({
         quiz: { isOpen: true, data: quizData }
     }),
-    closeQuiz: () => set({
-        quiz: { isOpen: false, data: null }
-    }),
+    closeQuiz: () => set((state) => ({
+        quiz: { ...state.quiz, isOpen: false }
+    })),
     openInventoryModal: (items, title = '아이템 선택', callbackEvent = null) => set({
         inventoryModal: { isOpen: true, items, title, callbackEvent }
     }),
-    closeInventoryModal: () => set({
-        inventoryModal: { isOpen: false, items: [], title: '', callbackEvent: null }
-    }),
+    closeInventoryModal: () => set((state) => ({
+        inventoryModal: { ...state.inventoryModal, isOpen: false }
+    })),
     setLobbyPlayers: (players) => set((state) => ({
         lobby: { ...state.lobby, players }
     })),

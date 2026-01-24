@@ -1,18 +1,43 @@
 import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import useGameStore from '../../store/useGameStore';
 
 const Hearts = () => {
-    // 성능 최적화: hearts 데이터에만 빨대 꽂기
     const hearts = useGameStore((state) => state.hearts);
     const maxHearts = 3;
 
     return (
-        <div className="hud-hearts">
-            {Array.from({ length: maxHearts }).map((_, i) => (
-                <span key={i} style={{ fontSize: '30px', filter: i >= hearts ? 'grayscale(100%) opacity(0.5)' : 'none' }}>
-                    {i < hearts ? '❤️' : '💔'}
-                </span>
-            ))}
+        <div className="hud-hearts" style={{ display: 'flex', gap: '5px' }}>
+            <AnimatePresence mode="popLayout">
+                {Array.from({ length: maxHearts }).map((_, i) => {
+                    const isFull = i < hearts;
+                    const isLowHealth = hearts === 1 && isFull;
+
+                    return (
+                        <motion.span
+                            key={i}
+                            layout
+                            initial={{ scale: 0.5, opacity: 0 }}
+                            animate={{
+                                scale: isLowHealth ? [1, 1.2, 1] : 1,
+                                opacity: 1,
+                                filter: isFull ? 'none' : 'grayscale(100%) opacity(0.3)'
+                            }}
+                            transition={{
+                                scale: isLowHealth ? { duration: 0.6, repeat: Infinity } : { type: 'spring' },
+                                opacity: { duration: 0.2 }
+                            }}
+                            style={{
+                                fontSize: '32px',
+                                display: 'inline-block',
+                                textShadow: '2px 2px 0px rgba(0,0,0,0.5)'
+                            }}
+                        >
+                            {isFull ? '❤️' : '🖤'}
+                        </motion.span>
+                    );
+                })}
+            </AnimatePresence>
         </div>
     );
 };

@@ -9,11 +9,17 @@ export default class PreloaderScene extends Phaser.Scene {
         // Load tilemap
         // Load tilemap
         this.load.tilemapTiledJSON('stage_1', 'assets/maps/stage_1.json');
+        this.load.tilemapTiledJSON('stage_2', 'assets/maps/stage_2.json');
 
         // Load Tileset Images
         this.load.image('Wall', 'assets/tilesets/Wall.png');
         this.load.image('Floor2', 'assets/tilesets/Floor2.png');
         this.load.image('Exterior_Wall', 'assets/tilesets/Exterior_Wall.png');
+        this.load.image('Exterior_Decoration', 'assets/tilesets/Exterior_Decoration.png');
+
+        // Placeholder items for Stage 2
+        this.load.image('handkerchief', 'assets/tilesets/stage_1/gauze.png'); // Reuse gauze for now
+        this.load.image('handkerchief_wet', 'assets/tilesets/stage_1/gauze.png'); // Reuse gauze for now
 
 
         // Load character spritesheet
@@ -48,7 +54,6 @@ export default class PreloaderScene extends Phaser.Scene {
         this.load.image('npc_teacher', stage1Path + 'npc_teacher1.png');
 
         // UI Assets
-        this.load.image('inventory_icon', 'assets/inventory.png');
         this.load.image('title_bg', 'assets/title_bg.png');
     }
 

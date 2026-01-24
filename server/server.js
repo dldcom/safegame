@@ -2,6 +2,17 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const mongoose = require('mongoose');
+require('dotenv').config();
+
+// --- MongoDB Connection ---
+const DB_NAME = 'safegame';
+const MONGO_URI = process.env.MONGO_URI || `mongodb://admin:safe1234@database:27017/${DB_NAME}?authSource=admin`;
+
+mongoose.connect(MONGO_URI)
+    .then(() => console.log('MongoDB Connected...'))
+    .catch(err => console.log('DB Connection Error:', err));
+// --------------------------
 
 const app = express();
 const server = http.createServer(app);

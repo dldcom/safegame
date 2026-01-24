@@ -95,6 +95,8 @@ export default class NPC extends Phaser.Physics.Arcade.Sprite {
 
             this.scene.events.emit('showDialogue', message, this.displayName);
             this.talkCooldown = 3000;
+            return true;
         }
+        return false;
     }
 }

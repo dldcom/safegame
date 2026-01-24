@@ -1,24 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import useGameStore from '../../store/useGameStore';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const QuizModal = () => {
-    const { quiz, closeQuiz, setHearts } = useGameStore();
+    const { quiz, closeQuiz, setHearts, hearts } = useGameStore();
     const [currentIndex, setCurrentIndex] = useState(0);
     const [selectedOption, setSelectedOption] = useState(null);
-    const [feedback, setFeedback] = useState(null); // { isCorrect: boolean, message: string }
+    const [feedback, setFeedback] = useState(null);
     const [canInput, setCanInput] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Initial input cooldown to prevent accidental clicks
     useEffect(() => {
-        if (quiz.isOpen) {
-            const timer = setTimeout(() => setCanInput(true), 500);
-            return () => clearTimeout(timer);
-        }
-    }, [quiz.isOpen]);
+        const timer = setTimeout(() => setCanInput(true), 500);
+        return () => clearTimeout(timer);
+    }, []);
 
     // Keyboard Navigation
     useEffect(() => {
-        if (!quiz.isOpen || !canInput || feedback) return;
+        if (!canInput || feedback || isSubmitting) return;
 
         const handleKeyDown = (e) => {
             const currentQuiz = quiz.data[currentIndex];
@@ -30,21 +29,23 @@ const QuizModal = () => {
                 setSelectedOption(prev => prev === null ? 0 : Math.max(0, prev - 1));
             } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
                 setSelectedOption(prev => prev === null ? 0 : Math.min(currentQuiz.options.length - 1, prev + 1));
-            } else if ((e.key === 'Enter' || e.key === ' ') && selectedOption !== null) {
+            } else if ((e.code === 'Enter' || e.code === 'Space') && selectedOption !== null) {
+                e.preventDefault();
+                e.stopPropagation();
                 handleAnswer(selectedOption);
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [quiz.isOpen, canInput, currentIndex, selectedOption, feedback]);
+    }, [canInput, currentIndex, selectedOption, feedback, isSubmitting]);
 
-    if (!quiz.isOpen || !quiz.data) return null;
+    if (!quiz.data) return null;
 
     const currentQuiz = quiz.data[currentIndex];
 
     const handleAnswer = (index) => {
-        if (feedback) return; // Prevent double answering
+        if (feedback || isSubmitting) return;
 
         const isCorrect = index === currentQuiz.answerIndex;
 
@@ -60,25 +61,32 @@ const QuizModal = () => {
                 }
             }, 1500);
         } else {
-            const explanation = currentQuiz.explanation || "틀렸습니다. 다시 생각해보세요.";
+            const explanation = currentQuiz.explanation || "다시 한번 생각해보세요!";
             setFeedback({
                 isCorrect: false,
-                message: `오답입니다! 😢\n${explanation}`
+                message: explanation
             });
 
-            // Deduct heart
             const gameScene = window.game?.scene?.getScene('GameScene');
             if (gameScene) {
                 gameScene.hearts--;
                 setHearts(gameScene.hearts);
                 if (gameScene.hearts <= 0) {
-                    setTimeout(() => finishQuiz(false), 2000);
+                    setTimeout(() => finishQuiz(false), 2500);
+                } else {
+                    setTimeout(() => {
+                        setFeedback(null);
+                        setSelectedOption(null);
+                    }, 2500);
                 }
             }
         }
     };
 
     const finishQuiz = (isSuccess) => {
+        if (isSubmitting) return;
+        setIsSubmitting(true);
+
         const gameScene = window.game?.scene?.getScene('GameScene');
         if (gameScene) {
             gameScene.isUIOpen = false;
@@ -90,51 +98,67 @@ const QuizModal = () => {
             }
         }
 
-        // Reset local state for next time
-        setCurrentIndex(0);
-        setSelectedOption(null);
-        setFeedback(null);
         closeQuiz();
     };
 
-    const handleRetry = () => {
-        setFeedback(null);
-        setSelectedOption(null);
-    };
-
     return (
-        <div className="modal-overlay quiz-modal">
+        <motion.div
+            className="modal-overlay quiz-modal"
+            initial={{ opacity: 0, scale: 0.8, x: '-50%', y: '-45%' }}
+            animate={{ opacity: 1, scale: 1, x: '-50%', y: '-50%' }}
+            exit={{ opacity: 0, scale: 0.8, x: '-50%', y: '-45%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+        >
             <h2 className="modal-title">안전 퀴즈</h2>
+            <div style={{ position: 'absolute', top: '25px', right: '25px', color: '#ffd700', fontSize: '18px' }}>
+                {currentIndex + 1} / {quiz.data.length}
+            </div>
 
-            <div id="quiz-content">
+            <motion.div
+                id="quiz-content"
+                key={currentIndex}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+            >
                 <div className="quiz-question">
-                    Q{currentIndex + 1}. {currentQuiz.question}
+                    {currentQuiz.question}
                 </div>
 
                 <div className="quiz-options">
-                    {currentQuiz.options.map((opt, idx) => (
-                        <button
-                            key={idx}
-                            className={`quiz-btn ${selectedOption === idx ? 'focused' : ''} ${feedback && idx === currentQuiz.answerIndex ? 'correct-border' : ''}`}
-                            onClick={() => handleAnswer(idx)}
-                            onMouseEnter={() => !feedback && setSelectedOption(idx)}
-                            disabled={!!feedback}
-                        >
-                            ({idx + 1}) {opt}
-                        </button>
-                    ))}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {currentQuiz.options.map((opt, idx) => (
+                            <button
+                                key={idx}
+                                className={`quiz-btn ${selectedOption === idx ? 'focused' : ''} ${feedback && idx === currentQuiz.answerIndex ? 'correct-border' : ''}`}
+                                onClick={() => handleAnswer(idx)}
+                                onMouseEnter={() => !feedback && setSelectedOption(idx)}
+                                disabled={!!feedback}
+                            >
+                                {opt}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
-                {feedback && (
-                    <div className={`quiz-feedback ${feedback.isCorrect ? 'correct' : 'wrong'}`}>
-                        {feedback.message.split('\n').map((line, i) => <div key={i}>{line}</div>)}
-                        {!feedback.isCorrect && useGameStore.getState().hearts > 0 && (
-                            <button className="close-btn" style={{ marginTop: '10px' }} onClick={handleRetry}>다시 풀기</button>
-                        )}
-                    </div>
-                )}
-            </div>
-        </div>
+                <AnimatePresence>
+                    {feedback && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className={`quiz-feedback ${feedback.isCorrect ? 'correct' : 'wrong'}`}
+                        >
+                            <div style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '28px', color: '#ffd700' }}>
+                                {feedback.isCorrect ? ' 정 답 ' : '!! 오 답 !!'}
+                            </div>
+                            <div style={{ fontSize: '20px' }}>{feedback.message}</div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </motion.div>
+        </motion.div>
     );
 };
 

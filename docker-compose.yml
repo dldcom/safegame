@@ -1,0 +1,29 @@
+services:
+  # 1. MongoDB Database Box
+  database:
+    image: mongo:latest
+    container_name: safegame_db
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: safe1234
+    volumes:
+      - mongo_data:/data/db
+
+  # 2. Safegame Node.js Server Box
+  app-server:
+    build:
+      context: ./server
+    container_name: safegame_server
+    restart: always
+    ports:
+      - "3001:3001"
+    environment:
+      - MONGO_URI=mongodb://admin:safe1234@database:27017/safegame?authSource=admin
+    depends_on:
+      - database
+
+volumes:
+  mongo_data:

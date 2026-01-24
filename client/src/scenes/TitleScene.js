@@ -7,76 +7,73 @@ export default class TitleScene extends Phaser.Scene {
     }
 
     create() {
-        // Reset React UI State
         useGameStore.getState().setGameStarted(false);
         useGameStore.getState().setLobbyOpen(false);
-
         this.scene.stop('UI_Scene');
+
+        this.render();
+
+        this.scale.on('resize', () => {
+            this.scene.restart();
+        });
+    }
+
+    render() {
         const { width, height } = this.scale;
+        const isPortrait = height > width;
 
-        // 1. Background Image with darkening
+        // 1. Background Logic: 꽉 채우되 과하게 확대되지 않도록 조정
         const bg = this.add.image(width / 2, height / 2, 'title_bg');
-
-        // Scale background to cover screen
         const scaleX = width / bg.width;
         const scaleY = height / bg.height;
-        const scale = Math.max(scaleX, scaleY);
-        bg.setScale(scale).setScrollFactor(0);
-        bg.setTint(0x999999); // Slightly darken
+        const bgScale = Math.max(scaleX, scaleY); // Cover
+        bg.setScale(bgScale).setTint(0x888888);
 
-        // 2. Game Title with RPG Style
-        const titleText = this.add.text(width / 2, height / 2 - 80, 'SAFE GAME', {
+        // 2. Responsive Text Scaling (글씨가 모바일에서 너무 작아지지 않게 보정)
+        // 세로 화면일 때는 가로 비율을 더 적극적으로 반영하여 글씨를 키웁니다.
+        let textScale = isPortrait ? (width / 600) : (width / 1280);
+        textScale = Math.max(textScale, 0.6); // 최소 크기 제한
+
+        // 3. Game Title
+        const titleText = this.add.text(width / 2, height / 2 - (150 * textScale), 'SAFE GAME', {
             fontFamily: 'Galmuri11',
-            fontSize: '84px',
+            fontSize: `${100 * textScale}px`, // 글씨 크기 대폭 상향
             fontStyle: 'bold',
             color: '#ffd700',
             stroke: '#000000',
-            strokeThickness: 8,
-            shadow: { offsetX: 4, offsetY: 4, color: '#000', blur: 0, fill: true }
+            strokeThickness: 10 * textScale,
+            shadow: { offsetX: 4, offsetY: 4, color: '#000', fill: true }
         }).setOrigin(0.5);
 
-        // Subtitle/Edition text
-        this.add.text(width / 2, height / 2, '2024 SAFETY ADVENTURE', {
+        this.add.text(width / 2, height / 2 - (40 * textScale), '2024 SAFETY ADVENTURE', {
             fontFamily: 'Galmuri11',
-            fontSize: '24px',
+            fontSize: `${32 * textScale}px`,
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 4
+            strokeThickness: 4 * textScale
         }).setOrigin(0.5);
 
-        // 3. Press to Start (Blinking)
-        const startText = this.add.text(width / 2, height / 2 + 120, '- PRESS SPACE TO START -', {
+        // 4. Start Button (더 크게, 더 잘 보이게)
+        const startText = this.add.text(width / 2, height / 2 + (120 * textScale), '- TOUCH TO START -', {
             fontFamily: 'Galmuri11',
-            fontSize: '32px',
+            fontSize: `${42 * textScale}px`,
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 4
+            strokeThickness: 5 * textScale
         }).setOrigin(0.5);
 
-        // Blinking animation for start text
-        this.tweens.add({
-            targets: startText,
-            alpha: 0,
-            duration: 800,
-            ease: 'Cubic.easeInOut',
-            yoyo: true,
-            repeat: -1
-        });
+        this.tweens.add({ targets: startText, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
 
-        // 4. Footer info
-        this.add.text(width / 2, height - 40, 'PRODUCED BY ANTIGRAVITY TEAM', {
+        // 5. Footer
+        this.add.text(width / 2, height - 50, 'PRODUCED BY ANTIGRAVITY TEAM', {
             fontFamily: 'Galmuri11',
-            fontSize: '16px',
+            fontSize: `${18 * textScale}px`,
             color: '#aaaaaa'
         }).setOrigin(0.5);
 
-        // Transition Logic
         const startGame = () => {
-            // Flash effect before starting
             this.cameras.main.flash(500);
-            this.time.delayedCall(500, () => {
-                this.scene.start('LobbyScene');
-            });
+            this.time.delayedCall(500, () => this.scene.start('LobbyScene'));
         };
 
         this.input.keyboard.once('keydown-SPACE', startGame);

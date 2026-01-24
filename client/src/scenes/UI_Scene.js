@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import { STAGE_1_ITEMS } from '../data/Stage1Data';
 import useGameStore, { isUIOpen } from '../store/useGameStore';
 
 export default class UI_Scene extends Phaser.Scene {
@@ -10,7 +9,6 @@ export default class UI_Scene extends Phaser.Scene {
 
     resetState() {
         this.canInput = true;
-        this.maxHearts = 3;
 
         // Joystick State
         this.joystick = {
@@ -29,6 +27,13 @@ export default class UI_Scene extends Phaser.Scene {
 
         const gameScene = this.scene.get('GameScene');
         if (gameScene) {
+            // Clean up old listeners on gameScene to avoid duplication
+            gameScene.events.off('updateHearts');
+            gameScene.events.off('updateInventory');
+            gameScene.events.off('showDialogue');
+            gameScene.events.off('openItemSelector');
+            gameScene.events.off('openQuiz');
+
             gameScene.events.on('updateHearts', (count) => {
                 useGameStore.getState().setHearts(count);
             });
@@ -43,6 +48,7 @@ export default class UI_Scene extends Phaser.Scene {
             gameScene.events.on('openQuiz', (quizData) => this.startQuiz(quizData));
         }
 
+        this.events.off('dialogueEnded');
         this.events.on('dialogueEnded', () => {
             this.toggleJoystick(true);
             useGameStore.getState().hideDialogue();
@@ -146,6 +152,9 @@ export default class UI_Scene extends Phaser.Scene {
     }
 
     setupKeyboardInput() {
+        // Clear all keyboard listeners to avoid accumulation
+        this.input.keyboard.removeAllListeners();
+
         this.input.keyboard.on('keydown-I', () => {
             const state = useGameStore.getState();
             if (state.inventoryModal.isOpen) {

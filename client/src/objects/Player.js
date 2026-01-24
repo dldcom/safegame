@@ -53,19 +53,34 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         let vx = 0;
         let vy = 0;
 
+        // Crouch Logic (Shift Key)
+        this.isCrouched = cursors && cursors.shift && cursors.shift.isDown;
+        const currentSpeed = this.isCrouched ? this.speed * 0.5 : this.speed;
+
+        // Visual feedback for crouch
+        if (this.isCrouched) {
+            this.setScale(2, 1.2);
+            this.body.setSize(16, 12);
+            this.body.setOffset(8, 14);
+        } else {
+            this.setScale(2, 2);
+            this.body.setSize(16, 20);
+            this.body.setOffset(8, 6);
+        }
+
         // 1. Check Keyboard
         if (cursors) {
-            if (cursors.left.isDown) vx = -this.speed;
-            else if (cursors.right.isDown) vx = this.speed;
+            if (cursors.left.isDown) vx = -currentSpeed;
+            else if (cursors.right.isDown) vx = currentSpeed;
 
-            if (cursors.up.isDown) vy = -this.speed;
-            else if (cursors.down.isDown) vy = this.speed;
+            if (cursors.up.isDown) vy = -currentSpeed;
+            else if (cursors.down.isDown) vy = currentSpeed;
         }
 
         // 2. Check Joystick (if no keyboard input)
         if (vx === 0 && vy === 0 && joystick && joystick.active) {
-            vx = joystick.forceX * this.speed;
-            vy = joystick.forceY * this.speed;
+            vx = joystick.forceX * currentSpeed;
+            vy = joystick.forceY * currentSpeed;
         }
 
         body.setVelocity(vx, vy);
@@ -73,7 +88,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         if (vx !== 0 || vy !== 0) {
             moved = true;
             // Normalize for diagonal movement
-            body.velocity.normalize().scale(this.speed);
+            body.velocity.normalize().scale(currentSpeed);
 
             // Set Animations based on dominant direction
             if (Math.abs(vx) > Math.abs(vy)) {
@@ -82,6 +97,13 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
             } else {
                 if (vy < 0) this.anims.play('anim_up', true);
                 else this.anims.play('anim_down', true);
+            }
+
+            // Slower animation when crouching
+            if (this.isCrouched) {
+                this.anims.setTimeScale(0.5);
+            } else {
+                this.anims.setTimeScale(1);
             }
         }
 

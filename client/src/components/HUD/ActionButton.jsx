@@ -1,10 +1,8 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import useGameStore from '../../store/useGameStore';
 
 const ActionButton = () => {
-    // We only show/enable this if a dialogue is open or we are in a mission state
-    // But for a game-pad feel, it's often always there but semi-transparent
-
     const handleAction = () => {
         const uiScene = window.game?.scene?.getScene('UI_Scene');
         if (uiScene) {
@@ -13,9 +11,16 @@ const ActionButton = () => {
     };
 
     return (
-        <div className="hud-action-btn" onClick={handleAction}>
+        <motion.div
+            className="hud-action-btn"
+            onClick={handleAction}
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9, backgroundColor: 'rgba(255, 255, 255, 0.4)' }}
+        >
             <div className="action-btn-inner">A</div>
-        </div>
+        </motion.div>
     );
 };
 
