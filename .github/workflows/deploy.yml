@@ -1,0 +1,50 @@
+name: Docker Hub Deploy
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  # 1. 빌드 파트: GitHub 가상 컴퓨터가 고생하는 구간
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build and Push Server to Docker Hub
+        uses: docker/build-push-action@v4
+        with:
+          context: ./server
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/safegame-server:latest
+
+      - name: Build and Push Client to Docker Hub
+        uses: docker/build-push-action@v4
+        with:
+          context: ./client
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/safegame-client:latest
+
+  # 2. 배포 파트: 서버는 완성된 박스를 받기만 하는 구간
+  deploy:
+    needs: build-and-push # 빌드가 끝나야 실행됨
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH Remote Commands
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /home/ubuntu/safegame/safegame
+            sudo docker compose pull  # 새 박스 내려받기
+            sudo docker compose up -d # 실행 (빌드 과정 없음!)
+            sudo docker image prune -f # 오래된 이미지 정리

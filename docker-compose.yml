@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   # 1. MongoDB Database Box
   database:
@@ -14,8 +16,7 @@ services:
 
   # 2. Safegame Node.js Server Box
   app-server:
-    build:
-      context: ./server
+    image: dldcom/safegame-server:latest
     container_name: safegame_server
     restart: always
     ports:
@@ -24,6 +25,16 @@ services:
       - MONGO_URI=mongodb://admin:safe1234@database:27017/safegame?authSource=admin
     depends_on:
       - database
+
+  # 3. Safegame React Client Box
+  client:
+    image: dldcom/safegame-client:latest
+    container_name: safegame_client
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - app-server
 
 volumes:
   mongo_data:
