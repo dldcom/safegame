@@ -101,9 +101,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
             // Slower animation when crouching
             if (this.isCrouched) {
-                this.anims.setTimeScale(0.5);
+                this.anims.timeScale = 0.5;
             } else {
-                this.anims.setTimeScale(1);
+                this.anims.timeScale = 1;
             }
         }
 

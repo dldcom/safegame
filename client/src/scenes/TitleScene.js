@@ -7,14 +7,22 @@ export default class TitleScene extends Phaser.Scene {
     }
 
     create() {
+        this.isStarting = false;
         useGameStore.getState().setGameStarted(false);
         useGameStore.getState().setLobbyOpen(false);
         this.scene.stop('UI_Scene');
 
         this.render();
 
-        this.scale.on('resize', () => {
-            this.scene.restart();
+        // [수정] 전역 리스너는 씬이 멈춰도 남아있을 수 있으므로 명시적으로 제거 관리
+        const resizeHandler = () => {
+            if (this.scene.isActive()) {
+                this.scene.restart();
+            }
+        };
+        this.scale.on('resize', resizeHandler);
+        this.events.once('shutdown', () => {
+            this.scale.off('resize', resizeHandler);
         });
     }
 
@@ -72,11 +80,20 @@ export default class TitleScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         const startGame = () => {
+            if (this.isStarting) return;
+            this.isStarting = true;
+
+            console.log("Action triggered: Starting LobbyScene immediately.");
             this.cameras.main.flash(500);
-            this.time.delayedCall(500, () => this.scene.start('LobbyScene'));
+
+            // 리스너 즉시 제거
+            this.input.keyboard.off('keydown-SPACE');
+            this.input.off('pointerdown');
+
+            this.scene.start('LobbyScene');
         };
 
-        this.input.keyboard.once('keydown-SPACE', startGame);
-        this.input.once('pointerdown', startGame);
+        this.input.keyboard.on('keydown-SPACE', startGame);
+        this.input.on('pointerdown', startGame);
     }
 }

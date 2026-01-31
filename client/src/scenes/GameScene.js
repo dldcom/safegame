@@ -17,7 +17,17 @@ export default class GameScene extends Phaser.Scene {
         const store = useGameStore.getState();
         this.currentStage = store.stage || 1;
         this.inventory = [];
-        this.currentStep = (this.currentStage === 1) ? MISSION_STEPS.STEP_0_START : STAGE_2_MISSION_STEPS.STEP_0_START;
+
+        // Stage-specific initial step
+        if (this.currentStage === 1) {
+            this.currentStep = MISSION_STEPS.STEP_0_START;
+        } else if (this.currentStage === 2) {
+            this.currentStep = STAGE_2_MISSION_STEPS.STEP_0_START;
+        } else {
+            // Stage 3 or others: Default to 0
+            this.currentStep = 0;
+        }
+
         this.hearts = 3;
         this.dialogueQueue = [];
         this.isWaitingForInventory = false;
@@ -36,6 +46,43 @@ export default class GameScene extends Phaser.Scene {
     create() {
         if (!this.socket) this.socket = io();
 
+        const mapKey = `stage_${this.currentStage}`;
+        const store = useGameStore.getState();
+        const customMap = store.customMaps[mapKey];
+
+        // [핵심] 맵이 캐시에 없거나 커스텀 맵인 경우 동적으로 로드
+        if (!this.cache.tilemap.has(mapKey) || customMap) {
+            console.log(`>>> [GameScene] Loading map dynamically for ${mapKey}`);
+
+            // 로딩 메시지 표시
+            const loadingText = this.add.text(this.scale.width / 2, this.scale.height / 2, '맵 데이터를 불러오는 중...', {
+                fontFamily: 'Noto Serif KR', fontSize: '24px', color: '#ffffff'
+            }).setOrigin(0.5);
+
+            // 캐시에 이미 있으면 제거하고 다시 로드 (커스텀 맵 최신화 대응)
+            if (this.cache.tilemap.has(mapKey)) {
+                this.cache.tilemap.remove(mapKey);
+            }
+
+            if (customMap) {
+                // Store에 있는 JSON 데이터로 로드
+                this.load.tilemapTiledJSON(mapKey, customMap);
+            } else {
+                // 기본 파일 경로로 로드
+                this.load.tilemapTiledJSON(mapKey, `assets/maps/${mapKey}.json`);
+            }
+
+            this.load.once('complete', () => {
+                loadingText.destroy();
+                this.continueCreate();
+            });
+            this.load.start();
+        } else {
+            this.continueCreate();
+        }
+    }
+
+    continueCreate() {
         const map = this.setupMap();
         this.setupPhysicsGroups();
         this.setupEvents();
@@ -44,7 +91,11 @@ export default class GameScene extends Phaser.Scene {
         this.setupNetwork();
 
         this.scene.launch('UI_Scene');
-        this.startIntroSequence();
+        if (this.currentStage === 1) {
+            this.startIntroSequence();
+        } else {
+            console.log(`>>> [GameScene] Stage ${this.currentStage} started in free roam.`);
+        }
     }
 
     setupMap() {
@@ -52,18 +103,28 @@ export default class GameScene extends Phaser.Scene {
         const map = this.make.tilemap({ key: mapKey });
 
         let tilesets = [];
-        if (this.currentStage === 1) {
+        if (this.currentStage === 1 || this.currentStage === 3) {
+            // Stage 1 and Stage 3 (MapMaker Standard)
             tilesets = [
                 map.addTilesetImage('Wall', 'Wall'),
                 map.addTilesetImage('Floor2', 'Floor2'),
                 map.addTilesetImage('Exterior_Wall', 'Exterior_Wall')
             ];
-            map.createLayer('background', tilesets, 0, 0);
-            this.wallLayer = map.createLayer('middleground', tilesets, 0, 0);
-            const foregroundLayer = map.createLayer('foreground', tilesets, 0, 0);
-            this.wallLayer.setDepth(1).setCollisionByExclusion([-1]);
-            foregroundLayer.setDepth(10);
-        } else {
+
+            // Filter out null tilesets in case some are not used in a custom map
+            const validTilesets = tilesets.filter(t => t !== null);
+
+            map.createLayer('background', validTilesets, 0, 0);
+            this.wallLayer = map.createLayer('middleground', validTilesets, 0, 0);
+            const foregroundLayer = map.createLayer('foreground', validTilesets, 0, 0);
+
+            if (this.wallLayer) {
+                this.wallLayer.setDepth(1).setCollisionByExclusion([-1]);
+            }
+            if (foregroundLayer) {
+                foregroundLayer.setDepth(10);
+            }
+        } else if (this.currentStage === 2) {
             // Stage 2 Tilesets (Based on stage_2.json names)
             tilesets = [
                 map.addTilesetImage('Floor', 'Floor2'),
@@ -175,7 +236,9 @@ export default class GameScene extends Phaser.Scene {
 
         // Floating NPC
         this.npc = new NPC(this, 500, 1000, 'princess', { type: 'moving', displayName: '안전 지킴이' });
-        this.physics.add.collider([this.injuredNpc, this.teacherNpc, this.npc], this.wallLayer);
+        // NPC Collisions
+        const activeNPCs = [this.injuredNpc, this.teacherNpc, this.npc].filter(n => n != null);
+        this.physics.add.collider(activeNPCs, this.wallLayer);
     }
 
     addPlayer(playerInfo) {
@@ -187,48 +250,58 @@ export default class GameScene extends Phaser.Scene {
         this.physics.add.collider(this.player, this.items, this.collectItem, null, this);
 
         // NPC Collisions
-        this.physics.add.collider(this.player, this.npc, () => {
-            if (isUIOpen(useGameStore.getState())) return;
-            this.npc.speak("반가워! 복도 끝 교실에 다친 친구가 있어.\n얼른 가서 친구를 도와주고, 올바른 응급처치를 해줘!");
-        });
+        if (this.npc) {
+            this.physics.add.collider(this.player, this.npc, () => {
+                if (isUIOpen(useGameStore.getState())) return;
+                this.npc.speak("반가워! 복도 끝 교실에 다친 친구가 있어.\n얼른 가서 친구를 도와주고, 올바른 응급처치를 해줘!");
+            });
+        }
 
-        this.physics.add.collider(this.player, this.injuredNpc, () => {
-            if (isUIOpen(useGameStore.getState())) return;
-            if (this.currentStep >= MISSION_STEPS.STEP_2_PROTECTED) {
-                this.injuredNpc.speak('와 상처가 다 나았어! 고마워! 보건 선생님께 가봐!');
-            } else if (this.inventory.length === 0) {
-                this.injuredNpc.speak('뜨거운 물에 손이 데였어 너무 아파..');
-            } else {
-                if (this.injuredNpc.speak('나를 치료할 물건을 가져왔어? 그럼 사용해줘.')) {
-                    this.isWaitingForInventory = true;
+        if (this.injuredNpc) {
+            this.physics.add.collider(this.player, this.injuredNpc, () => {
+                if (isUIOpen(useGameStore.getState())) return;
+                if (this.currentStep >= MISSION_STEPS.STEP_2_PROTECTED) {
+                    this.injuredNpc.speak('와 상처가 다 나았어! 고마워! 보건 선생님께 가봐!');
+                } else if (this.inventory.length === 0) {
+                    this.injuredNpc.speak('뜨거운 물에 손이 데였어 너무 아파..');
+                } else {
+                    if (this.injuredNpc.speak('나를 치료할 물건을 가져왔어? 그럼 사용해줘.')) {
+                        this.isWaitingForInventory = true;
+                    }
                 }
-            }
-        });
+            });
+        }
 
-        this.physics.add.collider(this.player, this.teacherNpc, () => {
-            if (isUIOpen(useGameStore.getState())) return;
-            if (this.currentStep >= MISSION_STEPS.STEP_3_REPORTED) {
-                this.teacherNpc.speak("이제 다음 방으로 넘어가봐!");
-            } else if (this.currentStep >= MISSION_STEPS.STEP_2_PROTECTED) {
-                this.teacherNpc.speak("다친 친구를 잘 도와주었구나! \n정말 잘했어. 마지막으로 간단한 안전 퀴즈를 풀어볼까?");
-                this.pendingQuiz = true;
-            } else {
-                this.teacherNpc.speak("아직 치료가 끝나지 않았어. 다친 친구를 도와주고 오렴.");
-            }
-        });
+        if (this.teacherNpc) {
+            this.physics.add.collider(this.player, this.teacherNpc, () => {
+                if (isUIOpen(useGameStore.getState())) return;
+                if (this.currentStep >= MISSION_STEPS.STEP_3_REPORTED) {
+                    this.teacherNpc.speak("이제 다음 방으로 넘어가봐!");
+                } else if (this.currentStep >= MISSION_STEPS.STEP_2_PROTECTED) {
+                    this.teacherNpc.speak("다친 친구를 잘 도와주었구나! \n정말 잘했어. 마지막으로 간단한 안전 퀴즈를 풀어볼까?");
+                    this.pendingQuiz = true;
+                } else {
+                    this.teacherNpc.speak("아직 치료가 끝나지 않았어. 다친 친구를 도와주고 오렴.");
+                }
+            });
+        }
 
-        this.physics.add.collider(this.player, this.sink, () => {
-            this.events.emit('showDialogue', "세면대다. 화상 부위를 식힐 수 있어.", "정보");
-        });
+        if (this.sink) {
+            this.physics.add.collider(this.player, this.sink, () => {
+                this.events.emit('showDialogue', "세면대다. 화상 부위를 식힐 수 있어.", "정보");
+            });
+        }
 
-        // Spawn Items
-        const itemSpawns = [
-            { id: 'water_bottle', x: 600, y: 100 },
-            { id: 'gauze', x: 300, y: 300 },
-            { id: 'ice_pack', x: 700, y: 200 },
-            { id: 'toothpaste', x: 200, y: 500 }
-        ];
-        itemSpawns.forEach(s => this.items.add(new Collectible(this, s.x, s.y, s.id)));
+        // Spawn Items (Stage 1 only for now)
+        if (this.currentStage === 1) {
+            const itemSpawns = [
+                { id: 'water_bottle', x: 600, y: 100 },
+                { id: 'gauze', x: 300, y: 300 },
+                { id: 'ice_pack', x: 700, y: 200 },
+                { id: 'toothpaste', x: 200, y: 500 }
+            ];
+            itemSpawns.forEach(s => this.items.add(new Collectible(this, s.x, s.y, s.id)));
+        }
     }
 
     addOtherPlayer(playerInfo) {

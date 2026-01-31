@@ -25,6 +25,22 @@ const useGameStore = create((set) => ({
     gameStarted: false,
     stage: 1,
     oxygen: 100,
+    userStats: {
+        exp: 0,
+        level: 1,
+        totalExp: 0,
+        collection: [],
+        clearedStages: [],
+        quizProgress: 0
+    },
+    customMaps: {}, // { stage_1: JSON, stage_2: JSON, ... }
+
+    setUserStats: (stats) => set((state) => ({
+        userStats: { ...state.userStats, ...stats }
+    })),
+    setCustomMap: (stageId, data) => set((state) => ({
+        customMaps: { ...state.customMaps, [stageId]: data }
+    })),
 
     setStage: (stage) => set({ stage }),
     setOxygen: (val) => set({ oxygen: val }),

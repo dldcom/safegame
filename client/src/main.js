@@ -38,7 +38,14 @@ const config = {
     ]
 };
 
-const game = new Phaser.Game(config);
-window.game = game;
+let game = null;
 
-export default game;
+export const initGame = () => {
+    if (!game) {
+        game = new Phaser.Game(config);
+        window.game = game;
+    }
+    return game;
+};
+
+export default initGame;

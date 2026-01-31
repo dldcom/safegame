@@ -55,6 +55,14 @@ jobs:
             cd /home/ubuntu/safegame/safegame
             git fetch --all
             git reset --hard origin/main
+            
+            # .env 파일 생성 (보안 주입)
+            echo "MONGO_USER=${{ secrets.MONGO_USER }}" > .env
+            echo "MONGO_PASS=${{ secrets.MONGO_PASS }}" >> .env
+            echo "MONGO_DB=${{ secrets.MONGO_DB }}" >> .env
+            echo "PORT=${{ secrets.PORT }}" >> .env
+            echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+            
             sudo docker compose pull
             sudo docker compose up -d
             sudo docker image prune -f

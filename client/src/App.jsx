@@ -1,42 +1,31 @@
-import Hearts from './components/HUD/Hearts';
-import InventoryHUD from './components/HUD/InventoryHUD';
-import Dialogue from './components/Dialogue/Dialogue';
-import InventoryModal from './components/Modals/InventoryModal';
-import QuizModal from './components/Modals/QuizModal';
-import ActionButton from './components/HUD/ActionButton';
-import OxygenGauge from './components/HUD/OxygenGauge';
-import LobbyView from './components/Modals/LobbyView';
-import useGameStore from './store/useGameStore';
-import { AnimatePresence } from 'framer-motion';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import LoginPage from './views/LoginPage';
+import StudentDashboard from './views/StudentDashboard';
+import TeacherDashboard from './views/TeacherDashboard';
+import GamePage from './views/GamePage';
+import MapMaker from './views/MapMaker';
 
 const App = () => {
-    const gameStarted = useGameStore((state) => state.gameStarted);
-    const { inventoryModal, quiz } = useGameStore();
-
     return (
-        <div className="ui-overlay">
-            <LobbyView />
+        <Router>
+            <Routes>
+                {/* 1. 첫 페이지: 로그인 */}
+                <Route path="/" element={<LoginPage />} />
 
-            <AnimatePresence>
-                {gameStarted && (
-                    <div key="game-hud">
-                        <Hearts />
-                        <OxygenGauge />
-                        <InventoryHUD />
-                        <Dialogue />
-                        <ActionButton />
-                    </div>
-                )}
-            </AnimatePresence>
+                {/* 2. 학생용 스테이지 선택 대시보드 */}
+                <Route path="/student" element={<StudentDashboard />} />
 
-            <AnimatePresence>
-                {gameStarted && inventoryModal.isOpen && <InventoryModal key="inventory-modal" />}
-            </AnimatePresence>
+                {/* 3. 교사용 학생 관리 대시보드 */}
+                <Route path="/teacher" element={<TeacherDashboard />} />
 
-            <AnimatePresence>
-                {gameStarted && quiz.isOpen && <QuizModal key="quiz-modal" />}
-            </AnimatePresence>
-        </div>
+                {/* 4. 실제 게임 화면 */}
+                <Route path="/game" element={<GamePage />} />
+
+                {/* 5. 맵 제작 도구 (교사용) */}
+                <Route path="/map-maker" element={<MapMaker />} />
+            </Routes>
+        </Router>
     );
 };
 

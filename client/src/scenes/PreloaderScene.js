@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import useGameStore from '../store/useGameStore';
 
 export default class PreloaderScene extends Phaser.Scene {
     constructor() {
@@ -6,41 +7,57 @@ export default class PreloaderScene extends Phaser.Scene {
     }
 
     preload() {
-        // Load tilemap
-        // Load tilemap
-        this.load.tilemapTiledJSON('stage_1', 'assets/maps/stage_1.json');
-        this.load.tilemapTiledJSON('stage_2', 'assets/maps/stage_2.json');
+        const store = useGameStore.getState();
+        const customMaps = store.customMaps || {};
+
+        // Load tilemaps (Check if custom map exists in store)
+        if (customMaps['stage_1']) {
+            this.load.tilemapTiledJSON('stage_1', customMaps['stage_1']);
+        } else {
+            this.load.tilemapTiledJSON('stage_1', 'assets/maps/stage_1.json');
+        }
+
+        if (customMaps['stage_2']) {
+            this.load.tilemapTiledJSON('stage_2', customMaps['stage_2']);
+        } else {
+            this.load.tilemapTiledJSON('stage_2', 'assets/maps/stage_2.json');
+        }
+
+        // Support Stage 3 dynamic loading
+        if (customMaps['stage_3']) {
+            this.load.tilemapTiledJSON('stage_3', customMaps['stage_3']);
+        }
 
         // Load Tileset Images
-        this.load.image('Wall', 'assets/tilesets/Wall.png');
-        this.load.image('Floor2', 'assets/tilesets/Floor2.png');
-        this.load.image('Exterior_Wall', 'assets/tilesets/Exterior_Wall.png');
-        this.load.image('Exterior_Decoration', 'assets/tilesets/Exterior_Decoration.png');
+        this.load.image('Wall', '/assets/tilesets/Wall.png');
+        this.load.image('Floor2', '/assets/tilesets/Floor2.png');
+        this.load.image('Exterior_Wall', '/assets/tilesets/Exterior_Wall.png');
+        this.load.image('Exterior_Decoration', '/assets/tilesets/Exterior_Decoration.png');
 
         // Placeholder items for Stage 2
-        this.load.image('handkerchief', 'assets/tilesets/stage_1/gauze.png'); // Reuse gauze for now
-        this.load.image('handkerchief_wet', 'assets/tilesets/stage_1/gauze.png'); // Reuse gauze for now
+        this.load.image('handkerchief', '/assets/tilesets/stage_1/gauze.png'); // Reuse gauze for now
+        this.load.image('handkerchief_wet', '/assets/tilesets/stage_1/gauze.png'); // Reuse gauze for now
 
 
         // Load character spritesheet
-        this.load.spritesheet('character', 'assets/sprites/character_4_frame32x32.png', {
+        this.load.spritesheet('character', '/assets/sprites/character_4_frame32x32.png', {
             frameWidth: 32,
             frameHeight: 32
         });
 
         // Load NPC spritesheet (LPC Standard: 64x64)
-        this.load.spritesheet('princess', 'assets/sprites/princess.png', {
+        this.load.spritesheet('princess', '/assets/sprites/princess.png', {
             frameWidth: 64,
             frameHeight: 64
         });
 
         // Load Safety Items
-        this.load.image('outlet', 'assets/tilesets/멀티콘센트.png');
-        this.load.image('extinguisher', 'assets/tilesets/소화기.png');
+        this.load.image('outlet', '/assets/tilesets/멀티콘센트.png');
+        this.load.image('extinguisher', '/assets/tilesets/소화기.png');
 
-        // --- Stage 1: Burn First Aid Assets ---
+        // --- Stage 1: Burn First First Aid Assets ---
         // Path: assets/tilesets/stage_1/
-        const stage1Path = 'assets/tilesets/stage_1/';
+        const stage1Path = '/assets/tilesets/stage_1/';
         this.load.image('water_bottle', stage1Path + 'water_bottle.png');
         this.load.image('gauze', stage1Path + 'gauze.png');
         this.load.image('sink', stage1Path + 'sink.png');
