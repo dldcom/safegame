@@ -2,6 +2,12 @@ import Phaser from 'phaser';
 
 export default class Player extends Phaser.Physics.Arcade.Sprite {
     static createAnimations(scene, textureKey = 'character') {
+        const texture = scene.textures.get(textureKey);
+        if (!texture || texture.key === '__MISSING' || texture.frameTotal <= 1) {
+            console.warn(`>>> [Player] Texture ${textureKey} is invalid. Skipping animation creation.`);
+            return;
+        }
+
         // 1. 기본 캐릭터 애니메이션 (48x64 규격으로 통일)
         if (textureKey === 'character' && !scene.anims.exists('anim_down')) {
             const configs = [

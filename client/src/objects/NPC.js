@@ -17,6 +17,13 @@ export default class NPC extends Phaser.Physics.Arcade.Sprite {
     }
 
     static createDynamicAnimations(scene, textureKey) {
+        const texture = scene.textures.get(textureKey);
+        // [추가] 텍스처가 정상적으로 로드되지 않았거나 프레임이 없는 경우 건너뜀
+        if (!texture || texture.key === '__MISSING' || texture.frameTotal <= 1) {
+            console.warn(`>>> [NPC] Texture ${textureKey} is invalid or failed to load. Skipping animation creation.`);
+            return;
+        }
+
         const directions = ['down', 'up', 'right', 'left'];
         directions.forEach((dir, index) => {
             const animKey = `${textureKey}_${dir}`;
