@@ -19,12 +19,13 @@ const UserSchema = new mongoose.Schema({
     },
     // ... 기존 필드 유지
     characterSkin: { type: String, default: 'character_default' },
+    customCharacterId: { type: mongoose.Schema.Types.ObjectId, ref: 'Character' },
     gold: { type: Number, default: 0 },
     inventory: [
         {
             itemId: String,
             name: String,
-            type: String,
+            category: String,
             equipped: { type: Boolean, default: false }
         }
     ],
@@ -36,11 +37,14 @@ const UserSchema = new mongoose.Schema({
             updatedAt: { type: Date, default: Date.now }
         }
     ],
-    // 게이미피케이션 필드 추가
+    // 게이미피케이션 필드 강화
+    points: { type: Number, default: 0 }, // 아이템 구매용 재화
     exp: { type: Number, default: 0 },
     totalExp: { type: Number, default: 0 },
     level: { type: Number, default: 1 },
-    collection: [{ type: String }], // 획득한 아이템 ID (예: 'extinguisher')
+    equippedSkin: { type: String, default: 'skin_default' }, // 현재 장착 스킨
+    equippedTitle: { type: String, default: '초보 구조대' },   // 현재 장착 칭호
+    itemCollection: [{ type: String }], // 획득한 아이템 ID (예: 'extinguisher')
     clearedStages: [{ type: Number }], // 클리어한 스테이지 번호
     quizProgress: { type: Number, default: 0 },
     createdAt: { type: Date, default: Date.now }

@@ -26,6 +26,17 @@ router.post('/save', async (req, res) => {
     }
 });
 
+// Get All Maps (Metadata only for listing)
+router.get('/list', async (req, res) => {
+    try {
+        const maps = await Map.find({}, { mapId: 1, title: 1, author: 1, createdAt: 1 });
+        res.json(maps);
+    } catch (error) {
+        console.error('Error fetching map list:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 // Get Map by ID
 router.get('/:mapId', async (req, res) => {
     try {

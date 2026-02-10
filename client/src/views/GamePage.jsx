@@ -7,12 +7,13 @@ import { initGame } from '../main';
 const GamePage = () => {
     const [searchParams] = useSearchParams();
     const stage = searchParams.get('stage') || '1';
+    const roomId = searchParams.get('roomId');
 
     useEffect(() => {
         const fetchMapAndInit = async () => {
             const store = useGameStore.getState();
             store.setStage(parseInt(stage));
-            store.setGameStarted(false);
+            store.setGameStarted(true); // 게임 페이지에 왔으므로 true 세팅
 
             // 1. Fetch Custom Map from Server
             try {
@@ -29,8 +30,8 @@ const GamePage = () => {
                 console.warn(">>> [GamePage] Failed to fetch custom map, using default.", err);
             }
 
-            // 2. Phaser 게임 시작
-            initGame();
+            // 2. Phaser 게임 시작 (방 정보 전달)
+            initGame({ stageId: stage, roomId: roomId });
 
             // 3. Focus on game for key inputs
             const container = document.getElementById('game-container');
@@ -40,7 +41,7 @@ const GamePage = () => {
         };
 
         fetchMapAndInit();
-    }, [stage]);
+    }, [stage, roomId]);
 
     return (
         <div id="game-page">

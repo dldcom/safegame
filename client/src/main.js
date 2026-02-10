@@ -19,7 +19,7 @@ const config = {
         default: 'arcade',
         arcade: {
             gravity: { y: 0 }, // Top-down game, no gravity
-            debug: false // Disable debug to hide hitboxes
+            debug: true // Enable debug to see hitboxes
         }
     },
     scale: {
@@ -31,8 +31,6 @@ const config = {
     scene: [
         BootScene,
         PreloaderScene,
-        TitleScene,
-        LobbyScene,
         GameScene,
         UI_Scene
     ]
@@ -40,11 +38,22 @@ const config = {
 
 let game = null;
 
-export const initGame = () => {
+export const initGame = (data) => {
     if (!game) {
         game = new Phaser.Game(config);
         window.game = game;
     }
+
+    // 데이터(stageId, roomId 등)를 게임 인스턴스에 저장
+    game._initData = data;
+
+    // [중요] 이미 게임이 실행 중이라면, 새로운 데이터를 가지고 Preloader부터 다시 시작하게 함
+    if (game.scene.isActive('PreloaderScene') || game.scene.isActive('GameScene')) {
+        console.log(">>> [initGame] Game already running. Restarting Preloader with new data...");
+        game.scene.scenes.forEach(scene => scene.scene.stop());
+        game.scene.start('PreloaderScene');
+    }
+
     return game;
 };
 

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import useGameStore from '../store/useGameStore';
+import { getSocket } from '../services/socket';
 
 export default class TitleScene extends Phaser.Scene {
     constructor() {
@@ -8,6 +9,21 @@ export default class TitleScene extends Phaser.Scene {
 
     create() {
         this.isStarting = false;
+
+        // [수정] 만약 URL을 통해 특정 방에 입장 중이라면 타이틀 화면을 건너뛰고 즉시 게임으로 진입
+        const initData = this.game._initData;
+        if (initData && initData.roomId) {
+            console.log(">>> [TitleScene] Direct entry detected. Skipping title...", initData);
+            useGameStore.getState().setGameStarted(true);
+            useGameStore.getState().setLobbyOpen(false);
+            this.scene.start('GameScene', {
+                socket: getSocket(),
+                roomId: initData.roomId,
+                stageId: `stage_${initData.stageId}`
+            });
+            return;
+        }
+
         useGameStore.getState().setGameStarted(false);
         useGameStore.getState().setLobbyOpen(false);
         this.scene.stop('UI_Scene');

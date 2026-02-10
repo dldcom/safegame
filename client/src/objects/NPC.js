@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 
 export default class NPC extends Phaser.Physics.Arcade.Sprite {
     static createAnimations(scene) {
-        if (!scene.anims.exists('npc_up')) {
+        // Base animations for the default 'princess' (guide NPC)
+        if (scene.textures.exists('princess') && !scene.anims.exists('npc_down')) {
             const generateFrames = (row) => {
                 const startFrame = row * 9;
                 return scene.anims.generateFrameNumbers('princess', { start: startFrame + 1, end: startFrame + 8 });
@@ -15,6 +16,21 @@ export default class NPC extends Phaser.Physics.Arcade.Sprite {
         }
     }
 
+    static createDynamicAnimations(scene, textureKey) {
+        const directions = ['down', 'up', 'right', 'left'];
+        directions.forEach((dir, index) => {
+            const animKey = `${textureKey}_${dir}`;
+            if (!scene.anims.exists(animKey)) {
+                scene.anims.create({
+                    key: animKey,
+                    frames: scene.anims.generateFrameNumbers(textureKey, { start: index * 6, end: index * 6 + 5 }),
+                    frameRate: 10,
+                    repeat: -1
+                });
+            }
+        });
+    }
+
     constructor(scene, x, y, texture, options = {}) {
         super(scene, x, y, texture);
         scene.add.existing(this);
@@ -22,6 +38,7 @@ export default class NPC extends Phaser.Physics.Arcade.Sprite {
 
         this.type = options.type || 'static'; // 'static' or 'moving'
         this.displayName = options.displayName || 'NPC';
+        this.atlasData = options.atlasData || null;
 
         this.setupPhysics();
 
@@ -30,8 +47,12 @@ export default class NPC extends Phaser.Physics.Arcade.Sprite {
         this.speed = options.speed || 50;
         this.talkCooldown = 0;
 
-        // Default look
-        if (texture === 'princess') {
+        // Custom texture animations
+        if (texture.startsWith('db_npc_') || texture.startsWith('custom_')) {
+            NPC.createDynamicAnimations(scene, texture);
+            this.play(`${texture}_down`);
+            this.stop();
+        } else if (texture === 'princess') {
             this.play('npc_down');
             this.stop();
         }
@@ -64,7 +85,8 @@ export default class NPC extends Phaser.Physics.Arcade.Sprite {
         const body = this.body;
         body.setVelocity(0);
 
-        const animPrefix = this.texture.key === 'princess' ? 'npc_' : null;
+        const isDbNpc = this.texture.key.startsWith('db_npc_') || this.texture.key.startsWith('custom_');
+        const animPrefix = isDbNpc ? `${this.texture.key}_` : (this.texture.key === 'princess' ? 'npc_' : null);
 
         if (this.moveDirection === 1) { // Up
             body.setVelocityY(-this.speed);

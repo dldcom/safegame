@@ -10,7 +10,18 @@ const LoginPage = () => {
     const [password, setPassword] = useState('');
     const [role, setRole] = useState('student');
     const navigate = useNavigate();
+    const [characters, setCharacters] = useState([]);
+    const [selectedChar, setSelectedChar] = useState(null);
     const setUserStats = useGameStore(state => state.setUserStats);
+
+    // 캐릭터 목록 불러오기
+    React.useEffect(() => {
+        if (!isLogin) {
+            axios.get('/api/character/list')
+                .then(res => setCharacters(res.data))
+                .catch(err => console.error('Char list error:', err));
+        }
+    }, [isLogin]);
 
     // 자동 로그인 체크: 토큰이 있으면 대시보드로 즉시 이동
     React.useEffect(() => {
@@ -27,17 +38,24 @@ const LoginPage = () => {
         e.preventDefault();
         try {
             const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-            const payload = isLogin ? { username, password } : { username, password, role };
+            const payload = isLogin
+                ? { username, password }
+                : { username, password, role, customCharacterId: selectedChar?._id };
             const res = await axios.post(endpoint, payload);
 
             if (isLogin) {
+                const userData = res.data.user;
+                console.log(">>> [Login Success] User Data:", userData);
+
                 localStorage.setItem('token', res.data.token);
-                localStorage.setItem('user', JSON.stringify(res.data.user));
-                setUserStats(res.data.user); // Store gamification stats
-                res.data.user.role === 'teacher' ? navigate('/teacher') : navigate('/student');
+                localStorage.setItem('user', JSON.stringify(userData));
+                setUserStats(userData);
+
+                userData.role === 'teacher' ? navigate('/teacher') : navigate('/student');
             } else {
                 alert('회원가입이 완료되었습니다! 로그인해 주세요.');
                 setIsLogin(true);
+                setSelectedChar(null);
             }
         } catch (err) {
             alert(`오류: ${err.response?.data?.message || '인증에 실패했습니다.'}`);
@@ -104,10 +122,41 @@ const LoginPage = () => {
                                 </div>
                             )}
 
+                            {!isLogin && role === 'student' && (
+                                <div className="input-group">
+                                    <label>SELECT_CHARACTER ({characters.length})</label>
+                                    <div className="char-selection-grid">
+                                        {characters.map(char => (
+                                            <div
+                                                key={char._id}
+                                                className={`char-item ${selectedChar?._id === char._id ? 'active' : ''}`}
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    console.log('Character selected:', char.name);
+                                                    setSelectedChar(char);
+                                                }}
+                                                style={{ zIndex: 30, position: 'relative' }}
+                                            >
+                                                <div
+                                                    className="char-preview-v2"
+                                                    style={{
+                                                        backgroundImage: `url(${char.imagePath})`,
+                                                        pointerEvents: 'none'
+                                                    }}
+                                                ></div>
+                                                <span className="char-name" style={{ pointerEvents: 'none' }}>{char.name}</span>
+                                            </div>
+                                        ))}
+                                        {characters.length === 0 && <p className="no-chars">등록된 캐릭터가 없습니다.</p>}
+                                    </div>
+                                </div>
+                            )}
+
                             <motion.button
                                 type="submit"
                                 className="auth-submit-btn"
                                 whileTap={{ scale: 0.98, y: 2 }}
+                                disabled={!isLogin && role === 'student' && !selectedChar}
                             >
                                 {isLogin ? 'SYSTEM_ENTER' : 'CREATE_ACCOUNT'}
                             </motion.button>
@@ -331,6 +380,72 @@ const LoginPage = () => {
                     0% { top: -2%; }
                     100% { top: 102%; }
                 }
+
+                .char-selection-grid {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 12px;
+                    max-height: 200px;
+                    overflow-y: auto;
+                    padding: 4px;
+                    border: 1px solid #eee;
+                    background: #fdfdfd;
+                    pointer-events: auto !important; /* 클릭 차단 해제 */
+                    position: relative;
+                    z-index: 50;
+                }
+
+                .char-item {
+                    border: 2px solid transparent;
+                    padding: 8px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    cursor: pointer;
+                    transition: 0.2s;
+                    background: white;
+                    pointer-events: auto !important; /* 확실하게 추가 */
+                }
+
+                .char-item:hover { background: #f0f0f0; }
+
+                .char-item.active {
+                    border-color: var(--color-accent);
+                    background: #fff5f0;
+                }
+
+                .char-preview-v2 {
+                    width: 48px;
+                    height: 64px;
+                    background-size: 288px 256px; /* 48*6, 64*4 */
+                    background-position: 0px 0px; /* 정면 보고 서있기 */
+                    background-repeat: no-repeat;
+                    image-rendering: pixelated;
+                    margin-bottom: 6px;
+                    transition: transform 0.2s;
+                }
+
+                .char-item:hover .char-preview-v2 {
+                    animation: charWalk 0.6s steps(6) infinite;
+                    transform: scale(1.15);
+                }
+
+                @keyframes charWalk {
+                    from { background-position: 0px 0px; }
+                    to { background-position: -288px 0px; } /* 전체 너비만큼 이동 */
+                }
+
+                .char-name {
+                    font-size: 10px;
+                    font-weight: 700;
+                    text-align: center;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    width: 100%;
+                }
+
+                .no-chars { font-size: 11px; opacity: 0.5; grid-column: span 3; padding: 20px; text-align: center; }
 
                 @media (max-width: 1100px) {
                     .auth-main { grid-template-columns: 1fr; gap: 40px; padding-top: 60px; }

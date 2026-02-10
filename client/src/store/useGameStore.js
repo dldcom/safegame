@@ -26,14 +26,31 @@ const useGameStore = create((set) => ({
     stage: 1,
     oxygen: 100,
     userStats: {
+        id: '',
+        username: '',
+        points: 0,
         exp: 0,
         level: 1,
         totalExp: 0,
         collection: [],
         clearedStages: [],
-        quizProgress: 0
+        quizProgress: 0,
+        equippedSkin: 'skin_default',
+        equippedTitle: '초보 구조대',
+        customCharacter: null // 커스텀 캐릭터 정보 저장용
     },
-    customMaps: {}, // { stage_1: JSON, stage_2: JSON, ... }
+    customMaps: {},
+    gameResult: {
+        isOpen: false,
+        startTime: 0,
+        endTime: 0,
+        score: 0,
+        rankings: [] // [{ username, score, time }]
+    },
+
+    setGameResult: (result) => set((state) => ({
+        gameResult: { ...state.gameResult, ...result }
+    })),
 
     setUserStats: (stats) => set((state) => ({
         userStats: { ...state.userStats, ...stats }

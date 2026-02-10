@@ -152,8 +152,7 @@ export default class UI_Scene extends Phaser.Scene {
     }
 
     setupKeyboardInput() {
-        // Clear all keyboard listeners to avoid accumulation
-        this.input.keyboard.removeAllListeners();
+        // Individual listeners only, avoid global removal
 
         this.input.keyboard.on('keydown-I', () => {
             const state = useGameStore.getState();

@@ -32,21 +32,13 @@ const TeacherDashboard = () => {
                 </div>
 
                 <nav className="ed-nav">
-                    <div className="ed-nav-link active">
+                    <div className="ed-nav-link active" onClick={() => navigate('/map-maker')}>
                         <span className="nav-num">01</span>
-                        <span className="nav-text">학습 현황 모니터링</span>
-                    </div>
-                    <div className="ed-nav-link">
-                        <span className="nav-num">02</span>
-                        <span className="nav-text">성취도 분석</span>
-                    </div>
-                    <div className="ed-nav-link">
-                        <span className="nav-num">03</span>
-                        <span className="nav-text">플랫폼 설정</span>
-                    </div>
-                    <div className="ed-nav-link" onClick={() => navigate('/map-maker')}>
-                        <span className="nav-num">04</span>
                         <span className="nav-text">맵 제작 도구</span>
+                    </div>
+                    <div className="ed-nav-link active" onClick={() => navigate('/character-maker')}>
+                        <span className="nav-num">02</span>
+                        <span className="nav-text">캐릭터 제작 도구</span>
                     </div>
                 </nav>
 
@@ -59,81 +51,36 @@ const TeacherDashboard = () => {
             </aside>
 
             <main className="ed-main">
-                <header className="ed-header">
-                    <div className="ed-header-title">
-                        <motion.h1
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="serif-title"
-                        >
-                            학습 진척도 관리.
-                        </motion.h1>
-                        <p className="ed-subtitle">우리 반 학생들의 안전 의식 및 응급처치 역량 지표를 실시간으로 확인합니다.</p>
-                    </div>
-                    <div className="ed-header-status">
-                        <span className="status-dot"></span> 서버 연결됨
-                    </div>
-                </header>
-
-                <section className="ed-stats-grid">
-                    <div className="ed-stat-box">
-                        <label>전체 수강생</label>
-                        <h3>24 <small>명</small></h3>
-                    </div>
-                    <div className="ed-stat-box">
-                        <label>교육 이수율</label>
-                        <h3>52.4 <small>%</small></h3>
-                    </div>
-                    <div className="ed-stat-box accent">
-                        <label>평균 마스터리 포인트</label>
-                        <h3>842 <small>pts</small></h3>
-                    </div>
-                </section>
-
-                <section className="ed-table-section">
-                    <div className="table-header-row">
-                        <h2 className="section-small-title">학생 명단 및 성과 기록</h2>
-                        <div className="table-actions">
-                            <button className="minimal-btn">데이터 내보내기 (CSV)</button>
+                <section className="ed-vertical-stack">
+                    <motion.div
+                        className="tool-card-wide map-theme"
+                        whileHover={{ y: -10 }}
+                        onClick={() => navigate('/map-maker')}
+                    >
+                        <div className="card-content">
+                            <label className="card-label">TOOL 01</label>
+                            <h2 className="card-title">맵 만들기</h2>
+                            <div className="card-footer">
+                                <span className="explore-text">도구 열기</span>
+                                <div className="arrow-icon">→</div>
+                            </div>
                         </div>
-                    </div>
+                    </motion.div>
 
-                    <table className="ed-table">
-                        <thead>
-                            <tr>
-                                <th>학생 성명</th>
-                                <th>현재 상태</th>
-                                <th>학습 진도</th>
-                                <th>성취 점수</th>
-                                <th>최근 활동</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {students.map((s, idx) => (
-                                <motion.tr
-                                    key={s.id}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: idx * 0.1 }}
-                                >
-                                    <td className="td-name">{s.name}</td>
-                                    <td>
-                                        <span className={`ed-status-pill ${s.status === '완료' ? 'complete' : 'pending'}`}>
-                                            {s.status}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <div className="ed-progress-container">
-                                            <div className="ed-progress-bar" style={{ width: `${s.progress}%` }}></div>
-                                            <span className="ed-progress-text">{s.progress}%</span>
-                                        </div>
-                                    </td>
-                                    <td className="td-score">{s.score.toLocaleString()}</td>
-                                    <td className="td-time">{s.lastActive}</td>
-                                </motion.tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <motion.div
+                        className="tool-card-wide char-theme"
+                        whileHover={{ y: -5 }}
+                        onClick={() => navigate('/character-maker')}
+                    >
+                        <div className="card-content">
+                            <label className="card-label">TOOL 02</label>
+                            <h2 className="card-title">캐릭터 제작</h2>
+                            <div className="card-footer">
+                                <span className="explore-text">도구 열기</span>
+                                <div className="arrow-icon">→</div>
+                            </div>
+                        </div>
+                    </motion.div>
                 </section>
             </main>
 
@@ -244,183 +191,94 @@ const TeacherDashboard = () => {
 
                 .ed-main {
                     flex: 1;
-                    padding: 80px 100px 150px 100px;
+                    padding: 60px 80px;
                     z-index: 10;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 60px;
-                }
-
-                .ed-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: flex-start;
-                }
-
-                .serif-title {
-                    font-family: 'Noto Serif KR', serif;
-                    font-size: 3.5rem;
-                    margin: 0;
-                    font-weight: 700;
-                    letter-spacing: -1.5px;
-                }
-
-                .ed-subtitle {
-                    font-family: 'Noto Serif KR', serif;
-                    font-size: 1.2rem;
-                    color: #666;
-                    font-style: italic;
-                    margin-top: 15px;
-                    line-height: 1.6;
-                }
-
-                .ed-header-status {
-                    font-size: 12px;
-                    font-weight: 700;
-                    padding: 10px 20px;
-                    border: 1px solid #e0e0e0;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                }
-
-                .status-dot {
-                    width: 6px;
-                    height: 6px;
-                    background: #2ecc71;
-                    border-radius: 50%;
-                }
-
-                .ed-stats-grid {
-                    display: grid;
-                    grid-template-columns: repeat(3, 1fr);
-                    gap: 1px;
-                    background: #e0e0e0;
-                    border: 1px solid #e0e0e0;
-                }
-
-                .ed-stat-box {
-                    background: #fff;
-                    padding: 40px;
-                }
-
-                .ed-stat-box label {
-                    display: block;
-                    font-size: 12px;
-                    font-weight: 700;
-                    color: #888;
-                    margin-bottom: 15px;
-                }
-
-                .ed-stat-box h3 {
-                    font-family: 'Playfair Display', serif;
-                    font-size: 3rem;
-                    margin: 0;
-                }
-
-                .ed-stat-box h3 small {
-                    font-family: 'Noto Sans KR', sans-serif;
-                    font-size: 1rem;
-                    color: #888;
-                    margin-left: 5px;
-                    font-weight: 400;
-                }
-
-                .ed-table-section {
                     display: flex;
                     flex-direction: column;
                     gap: 30px;
                 }
 
-                .table-header-row {
+                .ed-vertical-stack {
                     display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    border-bottom: 1px solid #1a1a1a;
-                    padding-bottom: 15px;
+                    flex-direction: column;
+                    gap: 30px;
+                    width: 100%;
                 }
 
-                .section-small-title {
+                .tool-card-wide {
+                    position: relative;
+                    height: 180px;
+                    background: #ffffff;
+                    border: 1px solid #eeeeee;
+                    border-radius: 12px;
+                    overflow: hidden;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+                }
+
+                .tool-card-wide:hover {
+                    background: #ffffff;
+                    border-color: #1a1a1a;
+                    transform: translateY(-4px);
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.06);
+                }
+
+                .card-content {
+                    width: 100%;
+                    padding: 40px 60px;
+                    display: flex;
+                    flex-direction: column;
+                    z-index: 2;
+                }
+
+                .card-label {
+                    font-size: 11px;
+                    font-weight: 800;
+                    letter-spacing: 2px;
+                    color: #999;
+                    margin-bottom: 8px;
+                    text-transform: uppercase;
+                }
+
+                .card-title {
                     font-family: 'Noto Serif KR', serif;
-                    font-size: 1.5rem;
+                    font-size: 2rem;
                     margin: 0;
                     font-weight: 700;
+                    letter-spacing: -1px;
+                    color: #1a1a1a;
+                    transition: color 0.3s ease;
                 }
 
-                .minimal-btn {
-                    background: none;
-                    border: 1px solid #ccc;
-                    padding: 8px 15px;
-                    font-size: 11px;
-                    cursor: pointer;
-                    font-family: inherit;
-                }
-
-                .ed-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                }
-
-                .ed-table th {
-                    text-align: left;
-                    font-size: 12px;
-                    font-weight: 700;
-                    color: #888;
-                    padding: 20px 0;
-                    border-bottom: 1px solid #eee;
-                }
-
-                .ed-table td {
-                    padding: 30px 0;
-                    border-bottom: 1px solid #eee;
-                    font-size: 15px;
-                }
-
-                .td-name {
-                    font-family: 'Noto Serif KR', serif;
-                    font-weight: 700;
-                    font-size: 1.1rem;
-                }
-
-                .ed-status-pill {
-                    font-size: 11px;
-                    font-weight: 700;
-                    padding: 4px 10px;
-                    border: 1px solid #1a1a1a;
-                }
-
-                .ed-status-pill.pending {
-                    border-color: #ccc;
-                    color: #888;
-                }
-
-                .ed-progress-container {
+                .card-footer {
+                    margin-top: 20px;
                     display: flex;
                     align-items: center;
-                    gap: 15px;
+                    gap: 12px;
                 }
 
-                .ed-progress-bar {
-                    height: 2px;
-                    background: #1a1a1a;
-                }
-
-                .ed-progress-text {
-                    font-size: 12px;
-                    font-weight: 700;
-                    color: #888;
-                }
-
-                .td-score {
-                    font-family: 'Playfair Display', serif;
-                    font-weight: 700;
-                    font-size: 1.1rem;
-                }
-
-                .td-time {
-                    color: #888;
+                .explore-text {
                     font-size: 13px;
+                    font-weight: 700;
+                    color: #1a1a1a;
+                    letter-spacing: 0.5px;
                 }
+
+                .arrow-icon {
+                    color: #1a1a1a;
+                    font-size: 18px;
+                    transition: transform 0.3s ease;
+                }
+
+                .tool-card-wide:hover .arrow-icon {
+                    transform: translateX(8px);
+                }
+
+                /* Accent Styles on Hover */
+                .map-theme:hover .card-title { color: #2563eb; }
+                .char-theme:hover .card-title { color: #059669; }
             `}</style>
         </div>
     );

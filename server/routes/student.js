@@ -5,7 +5,7 @@ const User = require('../models/User');
 // 경험치 업데이트 및 레벨업 로직
 router.post('/update-exp', async (req, res) => {
     try {
-        const { userId, expToAdd, stageCleared, quizProgress } = req.body;
+        const { userId, expToAdd, pointsToAdd, stageCleared, quizProgress } = req.body;
         const user = await User.findById(userId);
         if (!user) return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
 
@@ -17,12 +17,18 @@ router.post('/update-exp', async (req, res) => {
             while (user.exp >= user.level * 100) {
                 user.exp -= user.level * 100;
                 user.level += 1;
+                user.points += 100; // 레벨업 보너스 포인트!
             }
+        }
+
+        if (pointsToAdd) {
+            user.points += pointsToAdd;
         }
 
         // 스테이지 클리어 정보 기록
         if (stageCleared && !user.clearedStages.includes(stageCleared)) {
             user.clearedStages.push(stageCleared);
+            user.points += 500; // 스테이지 최초 클리어 보너스
         }
 
         // 퀴즈 진행도 기록
@@ -34,11 +40,14 @@ router.post('/update-exp', async (req, res) => {
         res.json({
             message: '업데이트 완료',
             user: {
+                points: user.points,
                 exp: user.exp,
                 totalExp: user.totalExp,
                 level: user.level,
                 clearedStages: user.clearedStages,
-                quizProgress: user.quizProgress
+                quizProgress: user.quizProgress,
+                equippedSkin: user.equippedSkin,
+                equippedTitle: user.equippedTitle
             }
         });
     } catch (err) {

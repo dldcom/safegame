@@ -3,35 +3,37 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
 const TILE_SIZE = 32;
-const MAP_WIDTH = 50;
-const MAP_HEIGHT = 50;
+const MAP_WIDTH = 64;  // 32 -> 64 (2048px)
+const MAP_HEIGHT = 64; // 32 -> 64 (2048px)
+
+const OBJECT_TYPES = [
+    { value: 'playerspawn', label: '👤 시작 지점 (Player)', color: '#4a90e2', prefix: '' },
+    { value: 'npc', label: '👤 NPC 캐릭터', color: '#ff9f43', prefix: 'npc_' },
+    { value: 'item', label: '📦 아이템/물건', color: '#2e86de', prefix: 'item_' }
+];
 
 const MapMaker = () => {
     const navigate = useNavigate();
-    const [selectedLayer, setSelectedLayer] = useState('background');
-    const [selectedStage, setSelectedStage] = useState('stage_3'); // Default target
-    const [selection, setSelection] = useState({ gids: [[1]], width: 1, height: 1 });
-    const [activeTileset, setActiveTileset] = useState('Wall');
+    const [mapImage, setMapImage] = useState(null);
+    const [editMode, setEditMode] = useState('wall');
     const [showGrid, setShowGrid] = useState(true);
     const [isDrawing, setIsDrawing] = useState(false);
-    const [history, setHistory] = useState([]);
     const [statusMessage, setStatusMessage] = useState('');
-
-    const [paletteSelectStart, setPaletteSelectStart] = useState(null);
-    const [paletteSelectionRect, setPaletteSelectionRect] = useState(null);
-
+    const [history, setHistory] = useState([]);
+    const [selectedStage, setSelectedStage] = useState('custom_ai_map');
+    const [mapId, setMapId] = useState('stage_3');
+    const [mapTitle, setMapTitle] = useState('AI 생성 커스텀 맵 (Stage 3)');
+    const [drawTool, setDrawTool] = useState('brush'); // 'brush', 'area'
+    const [dragStart, setDragStart] = useState(null);
+    const [dragEnd, setDragEnd] = useState(null);
+    const [selectedObjectType, setSelectedObjectType] = useState('playerspawn');
+    const [objectSuffix, setObjectSuffix] = useState('');
+    const [mapList, setMapList] = useState([]);
+    const [showLoadModal, setShowLoadModal] = useState(false);
     const [mapData, setMapData] = useState({
-        background: Array(MAP_WIDTH * MAP_HEIGHT).fill(9287),
-        middleground: Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
-        foreground: Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
-        spawns: [{ id: 1, name: 'playerspawn', x: 200, y: 200 }]
+        collision: Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
+        spawns: [{ id: Date.now(), name: 'playerspawn', x: 200, y: 200 }]
     });
-
-    const tilesets = {
-        'Wall': { firstgid: 1, columns: 25, src: '/assets/tilesets/Wall.png', total: 8025, width: 800, height: 10272 },
-        'Floor2': { firstgid: 8026, columns: 60, src: '/assets/tilesets/Floor2.png', total: 8160, width: 1920, height: 4352 },
-        'Exterior_Wall': { firstgid: 16186, columns: 156, src: '/assets/tilesets/Exterior_Wall.png', total: 31200, width: 4992, height: 6400 }
-    };
 
     const pushToHistory = () => {
         setHistory(prev => {
@@ -52,83 +54,124 @@ const MapMaker = () => {
     };
 
     const handleCellAction = (index) => {
-        const startX = index % MAP_WIDTH;
-        const startY = Math.floor(index / MAP_WIDTH);
-        const newMapData = { ...mapData };
-        const newLayerData = [...newMapData[selectedLayer]];
-        let changed = false;
+        setMapData(prev => {
+            if (editMode === 'object') {
+                const x = (index % MAP_WIDTH) * TILE_SIZE;
+                const y = Math.floor(index / MAP_WIDTH) * TILE_SIZE;
 
-        for (let row = 0; row < selection.height; row++) {
-            for (let col = 0; col < selection.width; col++) {
-                const targetX = startX + col;
-                const targetY = startY + row;
-                if (targetX < MAP_WIDTH && targetY < MAP_HEIGHT) {
-                    const targetIndex = targetY * MAP_WIDTH + targetX;
-                    const gid = selection.gids[row][col];
-                    if (newLayerData[targetIndex] !== gid) {
-                        newLayerData[targetIndex] = gid;
+                const selectedDef = OBJECT_TYPES.find(t => t.value === selectedObjectType);
+                const fullName = selectedObjectType === 'playerspawn'
+                    ? 'playerspawn'
+                    : (selectedDef.prefix + (objectSuffix || 'unnamed'));
+
+                // 이미 같은 위치에 오브젝트가 있다면 제거
+                const alreadyExists = prev.spawns.find(s => s.x === x && s.y === y);
+                if (alreadyExists) {
+                    return {
+                        ...prev,
+                        spawns: prev.spawns.filter(s => s.id !== alreadyExists.id)
+                    };
+                }
+
+                // 플레이어 스폰은 하나만 존재하도록 처리
+                let filteredSpawns = prev.spawns;
+                if (selectedObjectType === 'playerspawn') {
+                    filteredSpawns = prev.spawns.filter(s => s.name === 'playerspawn' ? false : true);
+                }
+
+                return {
+                    ...prev,
+                    spawns: [...filteredSpawns, {
+                        id: Date.now(),
+                        name: fullName,
+                        x, y,
+                        width: TILE_SIZE,
+                        height: TILE_SIZE
+                    }]
+                };
+            }
+
+            if (prev.collision[index] === (editMode === 'wall' ? 1 : 0)) return prev;
+
+            const newCollision = [...prev.collision];
+            newCollision[index] = editMode === 'wall' ? 1 : 0;
+
+            return {
+                ...prev,
+                collision: newCollision
+            };
+        });
+    };
+
+    const handleAreaAction = (startIndex, endIndex) => {
+        const startX = startIndex % MAP_WIDTH;
+        const startY = Math.floor(startIndex / MAP_WIDTH);
+        const endX = endIndex % MAP_WIDTH;
+        const endY = Math.floor(endIndex / MAP_WIDTH);
+
+        const xMin = Math.min(startX, endX);
+        const xMax = Math.max(startX, endX);
+        const yMin = Math.min(startY, endY);
+        const yMax = Math.max(startY, endY);
+
+        setMapData(prev => {
+            const newCollision = [...prev.collision];
+            const val = editMode === 'wall' ? 1 : 0;
+            let changed = false;
+
+            for (let y = yMin; y <= yMax; y++) {
+                for (let x = xMin; x <= xMax; x++) {
+                    const idx = y * MAP_WIDTH + x;
+                    if (newCollision[idx] !== val) {
+                        newCollision[idx] = val;
                         changed = true;
                     }
                 }
             }
-        }
-        if (changed) {
-            newMapData[selectedLayer] = newLayerData;
-            setMapData(newMapData);
+            return changed ? { ...prev, collision: newCollision } : prev;
+        });
+    };
+
+    const handleImageUpload = (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => setMapImage(event.target?.result);
+            reader.readAsDataURL(file);
         }
     };
 
     const handleMouseDown = (index) => {
         pushToHistory();
         setIsDrawing(true);
-        handleCellAction(index);
+        // [수정] 오브젝트 배치 모드일 때는 드로우 툴과 상관없이 즉시 배치
+        if (drawTool === 'brush' || editMode === 'object') {
+            handleCellAction(index);
+        } else {
+            setDragStart(index);
+            setDragEnd(index);
+        }
     };
 
     const handleMouseEnter = (index) => {
-        if (isDrawing) handleCellAction(index);
-    };
+        if (!isDrawing) return;
+        // [수정] 오브젝트 배치 모드에서는 드래그로 그리는 것을 방지 (단일 클릭 권장)
+        if (editMode === 'object') return;
 
-    const handlePaletteMouseDown = (e) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const x = Math.floor((e.clientX - rect.left) / TILE_SIZE);
-        const y = Math.floor((e.clientY - rect.top) / TILE_SIZE);
-        setPaletteSelectStart({ x, y });
-        setPaletteSelectionRect({ x, y, w: 1, h: 1 });
-    };
-
-    const handlePaletteMouseMove = (e) => {
-        if (!paletteSelectStart) return;
-        const rect = e.currentTarget.getBoundingClientRect();
-        const currX = Math.floor((e.clientX - rect.left) / TILE_SIZE);
-        const currY = Math.floor((e.clientY - rect.top) / TILE_SIZE);
-        const x = Math.min(paletteSelectStart.x, currX);
-        const y = Math.min(paletteSelectStart.y, currY);
-        const w = Math.abs(paletteSelectStart.x - currX) + 1;
-        const h = Math.abs(paletteSelectStart.y - currY) + 1;
-        setPaletteSelectionRect({ x, y, w, h });
-    };
-
-    const handlePaletteMouseUp = () => {
-        if (!paletteSelectionRect) return;
-        const { x, y, w, h } = paletteSelectionRect;
-        const ts = tilesets[activeTileset];
-        const gids = [];
-        for (let r = 0; r < h; r++) {
-            const rowGids = [];
-            for (let c = 0; c < w; c++) {
-                rowGids.push(ts.firstgid + (y + r) * ts.columns + (x + c));
-            }
-            gids.push(rowGids);
+        if (drawTool === 'brush') {
+            handleCellAction(index);
+        } else {
+            setDragEnd(index);
         }
-        setSelection({ gids, width: w, height: h });
-        setPaletteSelectStart(null);
     };
 
-    const getTileInfo = (gid) => {
-        if (gid === 0) return null;
-        if (gid >= 16186) return { name: 'Exterior_Wall', ...tilesets['Exterior_Wall'] };
-        if (gid >= 8026) return { name: 'Floor2', ...tilesets['Floor2'] };
-        return { name: 'Wall', ...tilesets['Wall'] };
+    const handleMouseUpGlobal = () => {
+        if (isDrawing && drawTool === 'area' && dragStart !== null && dragEnd !== null) {
+            handleAreaAction(dragStart, dragEnd);
+        }
+        setIsDrawing(false);
+        setDragStart(null);
+        setDragEnd(null);
     };
 
     const generateTiledJson = () => ({
@@ -136,25 +179,67 @@ const MapMaker = () => {
         height: MAP_HEIGHT,
         infinite: false,
         layers: [
-            { data: mapData.background, height: MAP_HEIGHT, id: 1, name: "background", opacity: 1, type: "tilelayer", visible: true, width: MAP_WIDTH, x: 0, y: 0 },
-            { data: mapData.middleground, height: MAP_HEIGHT, id: 2, name: "middleground", opacity: 1, type: "tilelayer", visible: true, width: MAP_WIDTH, x: 0, y: 0 },
-            { data: mapData.foreground, height: MAP_HEIGHT, id: 3, name: "foreground", opacity: 1, type: "tilelayer", visible: true, width: MAP_WIDTH, x: 0, y: 0 }
+            {
+                data: mapData.collision || Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
+                height: MAP_HEIGHT,
+                id: 1,
+                name: "collision",
+                opacity: 0.5,
+                type: "tilelayer",
+                visible: true,
+                width: MAP_WIDTH,
+                x: 0, y: 0
+            },
+            {
+                draworder: "topdown",
+                id: 2,
+                name: "spawn",
+                objects: (mapData.spawns || []).map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    point: false,
+                    rotation: 0,
+                    type: "",
+                    visible: true,
+                    x: s.x,
+                    y: s.y,
+                    width: s.width || 32,
+                    height: s.height || 32
+                })),
+                opacity: 1,
+                type: "objectgroup",
+                visible: true,
+                x: 0,
+                y: 0
+            }
         ],
+        nextlayerid: 3,
+        nextobjectid: 1,
         orientation: "orthogonal",
+        renderorder: "right-down",
+        tiledversion: "1.10.1",
         tileheight: 32,
         tilewidth: 32,
-        tilesets: Object.keys(tilesets).map(name => ({
-            columns: tilesets[name].columns,
-            firstgid: tilesets[name].firstgid,
-            image: `/assets/tilesets/${name}.png`,
-            imageheight: tilesets[name].height,
-            imagewidth: tilesets[name].width,
-            name: name,
-            margin: 0,
-            spacing: 0,
-            tilecount: tilesets[name].total,
-            tileheight: 32, tilewidth: 32
-        })),
+        type: "map",
+        version: "1.10",
+        properties: [
+            { name: "bgImage", type: "string", value: mapImage || "" }
+        ],
+        tilesets: [
+            {
+                firstgid: 1,
+                name: "CollisionTile",
+                tilewidth: 32,
+                tileheight: 32,
+                tilecount: 1,
+                columns: 1,
+                margin: 0,
+                spacing: 0,
+                image: "Wall", // 이미 로드된 'Wall' 자산을 활용
+                imagewidth: 32,
+                imageheight: 32
+            }
+        ],
         width: MAP_WIDTH
     });
 
@@ -164,8 +249,66 @@ const MapMaker = () => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${selectedStage}.json`;
+        a.download = `ai_map_export.json`;
         a.click();
+    };
+
+    const fetchMapList = async () => {
+        try {
+            const response = await fetch('/api/map/list');
+            if (response.ok) {
+                const data = await response.json();
+                setMapList(data);
+                setShowLoadModal(true);
+            }
+        } catch (error) {
+            console.error('Fetch map list error:', error);
+            setStatusMessage('목록을 불러오지 못했습니다.');
+        }
+    };
+
+    const loadSelectedMap = async (id) => {
+        if (!window.confirm('현재 작업 중인 내용이 사라집니다. 불러오시겠습니까?')) return;
+
+        setStatusMessage('로딩 중...');
+        try {
+            const response = await fetch(`/api/map/${id}`);
+            if (response.ok) {
+                const map = await response.json();
+                const content = map.content;
+
+                // 역변환 로직
+                setMapId(map.mapId);
+                setMapTitle(map.title);
+
+                // 배경 이미지 복구
+                const bgProp = content.properties?.find(p => p.name === 'bgImage');
+                if (bgProp) setMapImage(bgProp.value);
+
+                // 레이어 복구
+                const collisionLayer = content.layers.find(l => l.name === 'collision');
+                const spawnLayer = content.layers.find(l => l.name === 'spawn');
+
+                setMapData({
+                    collision: collisionLayer ? collisionLayer.data : Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
+                    spawns: spawnLayer ? spawnLayer.objects.map(o => ({
+                        id: o.id || Date.now() + Math.random(),
+                        name: o.name,
+                        x: o.x,
+                        y: o.y,
+                        width: o.width || 32,
+                        height: o.height || 32
+                    })) : []
+                });
+
+                setShowLoadModal(false);
+                setStatusMessage('성공적으로 불러왔습니다!');
+                setTimeout(() => setStatusMessage(''), 2000);
+            }
+        } catch (error) {
+            console.error('Load map error:', error);
+            setStatusMessage('맵을 불러오는 중 오류가 발생했습니다.');
+        }
     };
 
     const saveToServer = async () => {
@@ -178,8 +321,8 @@ const MapMaker = () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    mapId: selectedStage,
-                    title: `${selectedStage} 커스텀 맵`,
+                    mapId: mapId,
+                    title: mapTitle,
                     author: user.username || '관리자',
                     content: tiledJson
                 })
@@ -197,98 +340,233 @@ const MapMaker = () => {
         }
     };
 
+    // [추가] 맵 크기 변경 대응 로직
     useEffect(() => {
-        const handleGlobalMouseUp = () => { setIsDrawing(false); setPaletteSelectStart(null); };
-        const handleKeyDown = (e) => { if (e.ctrlKey && e.key === 'z') { e.preventDefault(); handleUndo(); } };
-        window.addEventListener('mouseup', handleGlobalMouseUp);
+        const expectedSize = MAP_WIDTH * MAP_HEIGHT;
+        if (mapData.collision.length !== expectedSize) {
+            console.log(`>>> [MapMaker] Resizing collision array: ${mapData.collision.length} -> ${expectedSize}`);
+            setMapData(prev => ({
+                ...prev,
+                collision: Array(expectedSize).fill(0)
+            }));
+        }
+    }, [MAP_WIDTH, MAP_HEIGHT]);
+
+    const handleClearMap = () => {
+        if (window.confirm('맵의 모든 벽을 지우시겠습니까?')) {
+            pushToHistory();
+            setMapData(prev => ({
+                ...prev,
+                collision: Array(MAP_WIDTH * MAP_HEIGHT).fill(0)
+            }));
+        }
+    };
+
+    useEffect(() => {
+        window.addEventListener('mouseup', handleMouseUpGlobal);
+        return () => window.removeEventListener('mouseup', handleMouseUpGlobal);
+    }, [isDrawing, drawTool, dragStart, dragEnd, editMode]); // Dependencies for up global
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.ctrlKey && e.key === 'z') {
+                e.preventDefault();
+                handleUndo();
+            }
+        };
         window.addEventListener('keydown', handleKeyDown);
-        return () => { window.removeEventListener('mouseup', handleGlobalMouseUp); window.removeEventListener('keydown', handleKeyDown); };
-    }, [history, mapData]);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [history]); // history changes on undo/push
 
     return (
         <div className="map-maker-root">
-            <sidebar className="mm-sidebar">
+            <aside className="mm-sidebar">
                 <div className="mm-logo-area">
                     <h2 onClick={() => navigate('/teacher')} className="ed-logo clickable">Sage.</h2>
                     <span className="ed-logo-sub">Map Logic Console</span>
                 </div>
 
-                <div className="mm-layer-section">
-                    <label className="mm-label">적용 대상 스테이지</label>
-                    <select className="mm-stage-select" value={selectedStage} onChange={(e) => setSelectedStage(e.target.value)}>
-                        <option value="stage_1">Stage 1 (화상 안전)</option>
-                        <option value="stage_2">Stage 2 (화재 안전)</option>
-                        <option value="stage_3">Stage 3 (자연재해 안전)</option>
-                    </select>
-
-                    <label className="mm-label" style={{ marginTop: '20px' }}>편집 레이어</label>
-                    <div className="mm-layer-grid">
-                        {['background', 'middleground', 'foreground'].map(l => (
-                            <button key={l} className={`mm-layer-chip ${selectedLayer === l ? 'active' : ''}`} onClick={() => setSelectedLayer(l)}>
-                                {l}
-                            </button>
-                        ))}
-                    </div>
+                <div className="mm-db-actions" style={{ marginBottom: '20px' }}>
+                    <button className="mm-export-btn secondary" style={{ width: '100%' }} onClick={fetchMapList}>
+                        📁 저장된 맵 목록 보기
+                    </button>
                 </div>
 
-                <div className="mm-tileset-section">
-                    <label className="mm-label">타일셋 라이브러리 (드래그하여 여러 개 선택 가능)</label>
-                    <div className="mm-tileset-tabs">
-                        {Object.keys(tilesets).map(name => (
-                            <button key={name} className={`mm-ts-tab ${activeTileset === name ? 'active' : ''}`} onClick={() => setActiveTileset(name)}>
-                                {name}
-                            </button>
+                <div className="mm-layer-section">
+                    <label className="mm-label">맵 이미지 파일 (.png / .jpg)</label>
+                    <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="mm-file-input"
+                        id="map-upload"
+                    />
+                    <label htmlFor="map-upload" className="mm-upload-btn">
+                        🖼️ 맵 이미지 불러오기
+                    </label>
+
+                    <label className="mm-label" style={{ marginTop: '30px' }}>편집 모드</label>
+                    <div className="mm-tool-grid" style={{ marginBottom: '10px' }}>
+                        <button
+                            className={`mm-tool-btn ${drawTool === 'brush' ? 'active-tool' : ''}`}
+                            onClick={() => setDrawTool('brush')}
+                        >
+                            🖌️ 브러시 (Brush)
+                        </button>
+                        <button
+                            className={`mm-tool-btn ${drawTool === 'area' ? 'active-tool' : ''}`}
+                            onClick={() => setDrawTool('area')}
+                        >
+                            ⬛ 영역 채우기 (Area)
+                        </button>
+                    </div>
+
+                    <label className="mm-label">충돌 타일 종류</label>
+                    <div className="mm-tool-grid">
+                        <button
+                            className={`mm-tool-btn ${editMode === 'wall' ? 'active-wall' : ''}`}
+                            onClick={() => setEditMode('wall')}
+                        >
+                            🧱 벽 (Wall)
+                        </button>
+                        <button
+                            className={`mm-tool-btn ${editMode === 'eraser' ? 'active-eraser' : ''}`}
+                            onClick={() => setEditMode('eraser')}
+                        >
+                            🧹 지우개 (Eraser)
+                        </button>
+                    </div>
+
+                    <label className="mm-label" style={{ marginTop: '20px' }}>오브젝트 배치</label>
+                    <div className="mm-object-selector">
+                        <select
+                            className="mm-select"
+                            value={selectedObjectType}
+                            onChange={(e) => {
+                                setSelectedObjectType(e.target.value);
+                                setEditMode('object');
+                                setDrawTool('brush'); // 오브젝트 모드 시 브러시 강제
+                            }}
+                        >
+                            {OBJECT_TYPES.map(type => (
+                                <option key={type.value} value={type.value}>{type.label}</option>
+                            ))}
+                        </select>
+                        {selectedObjectType !== 'playerspawn' && (
+                            <div style={{ marginTop: '10px' }}>
+                                <label className="mm-label" style={{ fontSize: '10px', marginBottom: '5px' }}>
+                                    {selectedObjectType === 'npc' ? 'NPC ID (npc_...)' : '아이템 ID (item_...)'}
+                                </label>
+                                <input
+                                    type="text"
+                                    className="mm-text-input"
+                                    value={objectSuffix}
+                                    onChange={(e) => setObjectSuffix(e.target.value.replace(/[^a-z0-9_]/gi, ''))}
+                                    placeholder="예: doctor, water_bottle"
+                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd' }}
+                                />
+                            </div>
+                        )}
+                        <button
+                            className={`mm-tool-btn ${editMode === 'object' ? 'active-object' : ''}`}
+                            onClick={() => {
+                                setEditMode('object');
+                                setDrawTool('brush'); // 오브젝트 모드 시 브러시 강제
+                            }}
+                            style={{ marginTop: '10px', width: '100%' }}
+                        >
+                            📍 오브젝트 배치 모드
+                        </button>
+                    </div>
+
+                    <label className="mm-label" style={{ marginTop: '20px' }}>배치된 오브젝트 ({mapData.spawns.length})</label>
+                    <div className="mm-object-list">
+                        {mapData.spawns.map(s => (
+                            <div key={s.id} className="mm-obj-item">
+                                <div style={{ flex: 1 }}>
+                                    {s.name === 'playerspawn' ? (
+                                        <span style={{ fontWeight: 800, color: '#4a90e2' }}>START_POINT</span>
+                                    ) : (
+                                        <input
+                                            type="text"
+                                            value={s.name}
+                                            onChange={(e) => {
+                                                const newName = e.target.value;
+                                                setMapData(prev => ({
+                                                    ...prev,
+                                                    spawns: prev.spawns.map(p => p.id === s.id ? { ...p, name: newName } : p)
+                                                }));
+                                            }}
+                                            style={{
+                                                width: '100%', border: 'none', background: 'transparent',
+                                                fontSize: '11px', fontWeight: 600, color: '#1a1a1a',
+                                                padding: '2px 0'
+                                            }}
+                                        />
+                                    )}
+                                    <div style={{ fontSize: '8px', opacity: 0.5 }}>POS: {s.x / 32}, {s.y / 32}</div>
+                                </div>
+                                <button onClick={() => setMapData(prev => ({ ...prev, spawns: prev.spawns.filter(p => p.id !== s.id) }))}>❌</button>
+                            </div>
                         ))}
                     </div>
 
-                    <div className="mm-visual-palette-container">
-                        <div className="mm-visual-palette" onMouseDown={handlePaletteMouseDown} onMouseMove={handlePaletteMouseMove} onMouseUp={handlePaletteMouseUp}>
-                            <img src={tilesets[activeTileset].src} alt="palette" draggable="false" />
-                            {paletteSelectionRect && (
-                                <div className="mm-palette-selection-rect" style={{
-                                    left: paletteSelectionRect.x * 32, top: paletteSelectionRect.y * 32,
-                                    width: paletteSelectionRect.w * 32, height: paletteSelectionRect.h * 32
-                                }} />
-                            )}
-                            {!paletteSelectionRect && selection.gids[0][0] >= tilesets[activeTileset].firstgid && selection.gids[0][0] < tilesets[activeTileset].firstgid + 40000 && (
-                                <div className="mm-palette-selection" style={{
-                                    left: ((selection.gids[0][0] - tilesets[activeTileset].firstgid) % tilesets[activeTileset].columns) * 32,
-                                    top: Math.floor((selection.gids[0][0] - tilesets[activeTileset].firstgid) / tilesets[activeTileset].columns) * 32,
-                                    width: selection.width * 32, height: selection.height * 32
-                                }} />
-                            )}
-                        </div>
+                    <button
+                        className="mm-tool-btn"
+                        onClick={handleClearMap}
+                        style={{ marginTop: '10px', width: '100%', background: '#ff475711', color: '#ff4757', border: '1px solid #ff475722' }}
+                    >
+                        🗑️ 맵 초기화 (Clear)
+                    </button>
+                </div>
+
+                <div className="mm-tool-box" style={{ marginTop: '30px' }}>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label className="mm-label">시스템 식별 ID (mapId)</label>
+                        <p style={{ fontSize: '11px', color: '#666', marginBottom: '5px' }}>* stage_3 처럼 영문 아이디를 쓰세요.</p>
+                        <input
+                            type="text"
+                            className="mm-text-input"
+                            value={mapId}
+                            onChange={(e) => setMapId(e.target.value)}
+                            placeholder="예: stage_3"
+                            style={{
+                                width: '100%',
+                                padding: '10px',
+                                borderRadius: '8px',
+                                border: '2px solid #000',
+                                fontFamily: 'monospace'
+                            }}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="mm-label">맵 제목 (title)</label>
+                        <p style={{ fontSize: '11px', color: '#666', marginBottom: '5px' }}>* 관리용 이름을 써주세요.</p>
+                        <input
+                            type="text"
+                            className="mm-text-input"
+                            value={mapTitle}
+                            onChange={(e) => setMapTitle(e.target.value)}
+                            placeholder="예: 화재 대피 교육실"
+                            style={{
+                                width: '100%',
+                                padding: '10px',
+                                borderRadius: '8px',
+                                border: '2px solid #000'
+                            }}
+                        />
                     </div>
                 </div>
 
                 <div className="mm-tool-box">
-                    <div className="mm-selected-preview">
-                        <label className="mm-label">현재 선택된 도구 ({selection.width}x{selection.height})</label>
-                        <div className="mm-preview-container">
-                            {selection.gids[0][0] === 0 ? (<div className="mm-preview-tile eraser">✕</div>) : (
-                                <div className="mm-preview-grid" style={{ gridTemplateColumns: `repeat(${selection.width}, 16px)`, transform: 'scale(0.8)', transformOrigin: 'left top' }}>
-                                    {selection.gids.flat().map((gid, i) => {
-                                        const ts = getTileInfo(gid);
-                                        const localI = gid - ts.firstgid;
-                                        return (<div key={i} className="mm-preview-tile-small" style={{ backgroundImage: `url(${ts.src})`, backgroundPosition: `-${(localI % ts.columns) * 32}px -${Math.floor(localI / ts.columns) * 32}px`, backgroundSize: `${ts.columns * 32}px auto` }} />);
-                                    })}
-                                </div>
-                            )}
-                            <div className="mm-preview-info">
-                                <span className="mm-tile-gid">Size: {selection.width}x{selection.height}</span>
-                                <span className="mm-tile-name">{selection.gids[0][0] === 0 ? '지우개' : '멀티 타일'}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button className={`mm-tool-btn ${selection.gids[0][0] === 0 ? 'active' : ''}`} onClick={() => setSelection({ gids: [[0]], width: 1, height: 1 })}>지우개 (Eraser)</button>
-                    <div className="mm-save-actions">
+                    <div className="mm-save-actions" style={{ marginTop: '20px' }}>
                         <button className="mm-export-btn secondary" onClick={exportToJson}>JSON 다운로드</button>
                         <button className="mm-export-btn" onClick={saveToServer}>DB에 즉시 저장</button>
                     </div>
                     {statusMessage && <p className="mm-status">{statusMessage}</p>}
                 </div>
-            </sidebar>
+            </aside>
 
             <main className="mm-canvas-area">
                 <header className="mm-canvas-header">
@@ -300,22 +578,91 @@ const MapMaker = () => {
                         <label><input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} /> 격자 표시</label>
                     </div>
                 </header>
-                <div className="editor-view"><div className="canvas-frame">
-                    <div className="map-grid" style={{ gridTemplateColumns: `repeat(${MAP_WIDTH}, 32px)` }}>
-                        {Array.from({ length: MAP_WIDTH * MAP_HEIGHT }).map((_, i) => (
-                            <div key={i} className={`map-cell ${showGrid ? 'grid' : ''}`} onMouseDown={() => handleMouseDown(i)} onMouseEnter={() => handleMouseEnter(i)}>
-                                {['background', 'middleground', 'foreground'].map(layer => {
-                                    const gid = mapData[layer][i];
-                                    const ts = getTileInfo(gid);
-                                    if (!ts) return null;
-                                    const localI = gid - ts.firstgid;
-                                    return (<div key={layer} className="tile-layer" style={{ backgroundImage: `url(${ts.src})`, backgroundPosition: `-${(localI % ts.columns) * 32}px -${Math.floor(localI / ts.columns) * 32}px`, zIndex: layer === 'background' ? 1 : layer === 'middleground' ? 2 : 3 }} />);
+                <div className="editor-view">
+                    <div className="canvas-frame">
+                        <div className="canvas-container" style={{ position: 'relative' }}>
+                            {/* AI 생성 바닥 이미지 */}
+                            {mapImage && (
+                                <img
+                                    src={mapImage}
+                                    alt="Map Background"
+                                    className="map-base-layer"
+                                    style={{ width: MAP_WIDTH * TILE_SIZE, height: MAP_HEIGHT * TILE_SIZE, display: 'block' }}
+                                />
+                            )}
+
+                            {/* 충돌 그리드 레이어 */}
+                            <div
+                                className="map-grid"
+                                onDragStart={(e) => e.preventDefault()}
+                                style={{
+                                    gridTemplateColumns: `repeat(${MAP_WIDTH}, 32px)`,
+                                    position: 'absolute',
+                                    inset: 0,
+                                    background: mapImage ? 'transparent' : '#eee',
+                                    userSelect: 'none'
+                                }}
+                            >
+                                {mapData.collision.map((isWall, i) => {
+                                    // 영역 드래그 중인 하이라이트 계산
+                                    let isHighlighted = false;
+                                    if (isDrawing && drawTool === 'area' && dragStart !== null && dragEnd !== null) {
+                                        const sX = dragStart % MAP_WIDTH;
+                                        const sY = Math.floor(dragStart / MAP_WIDTH);
+                                        const eX = dragEnd % MAP_WIDTH;
+                                        const eY = Math.floor(dragEnd / MAP_WIDTH);
+                                        const currX = i % MAP_WIDTH;
+                                        const currY = Math.floor(i / MAP_WIDTH);
+                                        isHighlighted =
+                                            currX >= Math.min(sX, eX) && currX <= Math.max(sX, eX) &&
+                                            currY >= Math.min(sY, eY) && currY <= Math.max(sY, eY);
+                                    }
+
+                                    return (
+                                        <div
+                                            key={i}
+                                            className={`map-cell ${showGrid ? 'grid' : ''} ${isWall ? 'is-wall' : ''} ${isHighlighted ? 'is-highlight' : ''}`}
+                                            onMouseDown={() => handleMouseDown(i)}
+                                            onMouseEnter={() => handleMouseEnter(i)}
+                                        >
+                                            {isWall === 1 && <div className="wall-overlay" />}
+                                            {isHighlighted && <div className="area-highlight-overlay" />}
+                                        </div>
+                                    );
                                 })}
+
+                                {/* 오브젝트 레이어 표시 */}
+                                {mapData.spawns.map(spawn => (
+                                    <div
+                                        key={spawn.id}
+                                        className={`spawn-marker-overlay ${spawn.name}`}
+                                        style={{
+                                            position: 'absolute',
+                                            left: spawn.x,
+                                            top: spawn.y,
+                                            width: TILE_SIZE,
+                                            height: TILE_SIZE,
+                                            zIndex: 200,
+                                            pointerEvents: 'none'
+                                        }}
+                                    >
+                                        <div className="marker-core" />
+                                        <span className="marker-label">{spawn.name}</span>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
+                        </div>
                     </div>
-                </div></div>
+                </div>
             </main>
+
+            {/* 불러오기 모달 */}
+            <LoadMapModal
+                isOpen={showLoadModal}
+                onClose={() => setShowLoadModal(false)}
+                maps={mapList}
+                onSelect={loadSelectedMap}
+            />
 
             <style>{`
                 .map-maker-root { display: flex; height: 100vh; background: #fbfaf8; overflow: hidden; pointer-events: auto !important; }
@@ -323,48 +670,167 @@ const MapMaker = () => {
                 .mm-logo-area { margin-bottom: 50px; }
                 .mm-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; color: #888; text-transform: uppercase; margin-bottom: 20px; }
                 
-                .mm-stage-select { width: 100%; padding: 12px; border: 1px solid #eee; background: #f9f9f9; font-weight: 700; margin-bottom: 10px; }
-                .mm-layer-grid { display: flex; gap: 10px; margin-bottom: 40px; }
-                .mm-layer-chip { flex: 1; padding: 10px; border: 1px solid #eee; background: none; font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase; transition: all 0.2s; }
-                .mm-layer-chip.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+                .mm-file-input { display: none; }
+                .mm-upload-btn {
+                    display: flex; align-items: center; justify-content: center;
+                    width: 100%; padding: 15px; background: #fff; border: 2px dashed #ddd;
+                    font-weight: 700; cursor: pointer; transition: 0.2s; border-radius: 8px;
+                }
+                .mm-upload-btn:hover { border-color: #1a1a1a; background: #f9f9f9; }
 
-                .mm-tileset-tabs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 20px; }
-                .mm-ts-tab { padding: 6px 12px; border: 1px solid #eee; background: none; font-size: 11px; font-weight: 700; cursor: pointer; }
-                .mm-ts-tab.active { background: #4a90e2; color: #fff; border-color: #4a90e2; }
+                .mm-tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+                .mm-tool-btn { 
+                    padding: 15px; border: 1px solid #eee; background: #fff; 
+                    font-weight: 700; cursor: pointer; border-radius: 8px; font-size: 12px;
+                    transition: 0.2s;
+                }
+                .mm-tool-btn.active-tool { background: #4a90e2; color: #fff; border-color: #4a90e2; }
+                .mm-tool-btn.active-wall { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+                .mm-tool-btn.active-eraser { background: #ff4757; color: #fff; border-color: #ff4757; }
+                .mm-tool-btn.active-object { background: #00BFA5; color: #fff; border-color: #00BFA5; }
 
-                .mm-visual-palette-container { height: 350px; background: #f5f5f5; border: 1px solid #ddd; overflow: auto; position: relative; margin-bottom: 30px; }
-                .mm-visual-palette { position: relative; cursor: crosshair; }
-                .mm-visual-palette img { display: block; image-rendering: pixelated; }
+                .mm-select {
+                    width: 100%; padding: 12px; border: 2px solid #000; border-radius: 8px;
+                    font-weight: 700; font-family: inherit; cursor: pointer; background: #fff;
+                }
+
+                .mm-object-list {
+                    max-height: 200px; overflow-y: auto; background: #f9f9f9; border-radius: 8px;
+                    padding: 10px; border: 1px solid #eee; margin-bottom: 20px;
+                }
+                .mm-obj-item {
+                    display: flex; justify-content: space-between; align-items: center;
+                    padding: 8px; border-bottom: 1px solid #eee; font-size: 11px; font-weight: 600;
+                }
+                .mm-obj-item button { 
+                    background: none; border: none; cursor: pointer; padding: 2px 5px; 
+                    border-radius: 4px; transition: 0.2s;
+                }
+                .mm-obj-item button:hover { background: #ff475722; }
+
+                /* Spawn Markers */
+                .spawn-marker-overlay {
+                    display: flex; flex-direction: column; align-items: center; justify-content: center;
+                }
+                .marker-core {
+                    width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff;
+                    box-shadow: 0 0 10px rgba(0,0,0,0.3);
+                }
+                .marker-label {
+                    font-size: 8px; font-weight: 800; color: #fff; background: rgba(0,0,0,0.6);
+                    padding: 1px 4px; border-radius: 3px; margin-top: 2px; white-space: nowrap;
+                }
+                .playerspawn .marker-core { background: #4a90e2; }
+                .spawn-marker-overlay[class*="npc_"] .marker-core { background: #ff9f43; }
+                .spawn-marker-overlay[class*="item_"] .marker-core { background: #2e86de; }
                 
-                .mm-palette-selection-rect { position: absolute; border: 2px solid #ff4757; background: rgba(255, 71, 87, 0.2); pointer-events: none; z-index: 20; }
-                .mm-palette-selection { position: absolute; border: 2px solid #ff4757; box-shadow: 0 0 15px rgba(255, 71, 87, 0.5); pointer-events: none; z-index: 10; }
-
-                .mm-selected-preview { background: #fbfaf8; border: 1px solid #eee; padding: 20px; margin-bottom: 20px; border-radius: 12px; }
-                .mm-preview-container { display: flex; align-items: flex-start; gap: 15px; }
-                .mm-preview-grid { display: grid; gap: 1px; max-width: 64px; max-height: 64px; overflow: hidden; }
-                .mm-preview-tile-small { width: 16px; height: 16px; border: 0.5px solid #eee; image-rendering: pixelated; background-repeat: no-repeat; }
-                .mm-preview-info { display: flex; flex-direction: column; }
-                .mm-tile-gid { font-size: 10px; font-weight: 700; color: #888; }
-                .mm-tile-name { font-size: 13px; font-weight: 700; color: #1a1a1a; }
-
-                .mm-tool-box { margin-top: auto; display: grid; gap: 10px; }
-                .mm-save-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-                .mm-tool-btn { padding: 15px; border: 1px solid #1a1a1a; background: none; font-weight: 700; cursor: pointer; }
-                .mm-tool-btn.active { background: #ff4757; color: #fff; border-color: #ff4757; }
-                .mm-export-btn { padding: 18px; background: #1a1a1a; color: #fff; border: none; font-weight: 700; cursor: pointer; letter-spacing: 1px; }
-                .mm-export-btn.secondary { background: #fff; color: #1a1a1a; border: 1px solid #1a1a1a; }
-                .mm-status { font-size: 12px; color: #4a90e2; font-weight: 700; margin-top: 5px; text-align: center; }
+                /* 하위 호환성용 */
+                .npcspawn .marker-core { background: #ff9f43; }
+                .npc_hurt .marker-core { background: #ee5253; }
+                .sinkspawn .marker-core { background: #2e86de; }
+                .door_exit .marker-core { background: #10ac84; }
+                .item_extinguisher .marker-core { background: #ff4757; }
+                .item_medkit .marker-core { background: #ff9ff3; }
+                .item_water .marker-core { background: #54a0ff; }
+                .hazard_fire .marker-core { background: #ff9f43; }
+                .item_outlet .marker-core { background: #576574; }
 
                 .mm-canvas-area { flex: 1; padding: 60px; display: flex; flex-direction: column; overflow: auto; }
                 .serif-title { font-family: 'Noto Serif KR', serif; font-size: 3rem; margin: 0 0 10px 0; }
-                .editor-view { display: flex; justify-content: center; margin-top: 40px; }
                 .canvas-frame { background: white; padding: 50px; box-shadow: 0 40px 100px rgba(0,0,0,0.05); border: 1px solid #eee; }
-                .map-grid { display: grid; background: #f0f0f0; border: 1px solid #ddd; }
+                
+                .map-grid { display: grid; border: 1px solid rgba(0,0,0,0.1); }
                 .map-cell { width: 32px; height: 32px; position: relative; user-select: none; }
-                .map-cell.grid { box-shadow: inset 0 0 1px rgba(0,0,0,0.2); }
-                .map-cell:hover { background: rgba(0,0,0,0.05); outline: 1px solid #4a90e2; z-index: 100 !important; }
-                .tile-layer { position: absolute; top:0; left:0; width:32px; height:32px; background-repeat: no-repeat; image-rendering: pixelated; }
+                .map-cell.grid { outline: 0.5px solid rgba(0,0,0,0.05); }
+                .map-cell:hover { background: rgba(0,0,0,0.1); z-index: 100 !important; }
+                
+                .wall-overlay {
+                    position: absolute; inset: 0;
+                    background: rgba(100, 100, 100, 0.6);
+                    backdrop-filter: grayscale(1);
+                    border: 0.5px solid rgba(255,255,255,0.2);
+                }
+
+                .area-highlight-overlay {
+                    position: absolute; inset: 0;
+                    background: rgba(74, 144, 226, 0.4);
+                    border: 1px solid #4a90e2;
+                    z-index: 10;
+                }
+
+                .mm-tool-box { margin-top: auto; display: grid; gap: 10px; }
+                .mm-save-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+                .mm-export-btn { padding: 18px; background: #1a1a1a; color: #fff; border: none; font-weight: 700; cursor: pointer; letter-spacing: 1px; border-radius: 8px; }
+                .mm-export-btn.secondary { background: #fff; color: #1a1a1a; border: 1px solid #1a1a1a; }
+                .mm-status { font-size: 12px; color: #4a90e2; font-weight: 700; margin-top: 5px; text-align: center; }
                 .clickable { cursor: pointer; }
+            `}</style>
+        </div >
+    );
+};
+
+// 불러오기 모달 컴포넌트
+const LoadMapModal = ({ isOpen, onClose, maps, onSelect }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="mm-modal-overlay">
+            <div className="mm-modal-content">
+                <header className="mm-modal-header">
+                    <h3>DB 저장된 맵 불러오기</h3>
+                    <button onClick={onClose}>&times;</button>
+                </header>
+                <div className="mm-map-grid-list">
+                    {maps.length === 0 ? (
+                        <p style={{ textAlign: 'center', padding: '40px' }}>저장된 맵이 없습니다.</p>
+                    ) : (
+                        maps.map(map => (
+                            <div key={map.mapId} className="mm-map-card" onClick={() => onSelect(map.mapId)}>
+                                <div className="card-info">
+                                    <h4>{map.title}</h4>
+                                    <p>ID: {map.mapId}</p>
+                                    <p>제작: {map.author}</p>
+                                    <small>{new Date(map.createdAt).toLocaleDateString()}</small>
+                                </div>
+                                <div className="card-btn">불러오기</div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+            <style>{`
+                .mm-modal-overlay {
+                    position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+                    display: flex; align-items: center; justify-content: center; z-index: 1000;
+                    backdrop-filter: blur(5px);
+                }
+                .mm-modal-content {
+                    background: #fff; width: 600px; max-height: 80vh; border-radius: 20px;
+                    display: flex; flex-direction: column; overflow: hidden;
+                    box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+                }
+                .mm-modal-header {
+                    padding: 20px 30px; border-bottom: 1px solid #eee;
+                    display: flex; justify-content: space-between; align-items: center;
+                }
+                .mm-modal-header h3 { margin: 0; font-family: 'Noto Serif KR', serif; }
+                .mm-modal-header button { background: none; border: none; font-size: 24px; cursor: pointer; }
+                
+                .mm-map-grid-list { padding: 30px; overflow-y: auto; display: grid; gap: 15px; }
+                .mm-map-card {
+                    display: flex; justify-content: space-between; align-items: center;
+                    padding: 20px; border: 1px solid #eee; border-radius: 12px;
+                    cursor: pointer; transition: 0.2s;
+                }
+                .mm-map-card:hover { border-color: #1a1a1a; background: #f9f9f9; transform: translateY(-2px); }
+                .mm-map-card h4 { margin: 0 0 5px 0; font-size: 16px; }
+                .mm-map-card p { margin: 0; font-size: 12px; color: #666; }
+                .mm-map-card small { font-size: 10px; color: #999; }
+                
+                .card-btn {
+                    padding: 8px 16px; background: #1a1a1a; color: #fff;
+                    border-radius: 6px; font-size: 12px; font-weight: 700;
+                }
             `}</style>
         </div>
     );
