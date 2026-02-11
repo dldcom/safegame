@@ -27,7 +27,7 @@ services:
     depends_on:
       - database
     volumes:
-      - ./server/public/uploads:/app/server/public/uploads
+      - ./server/public/uploads:/usr/src/app/public/uploads
 
   # 3. Safegame React Client Box
   client:
