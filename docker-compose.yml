@@ -38,6 +38,8 @@ services:
       - "80:80"
     depends_on:
       - app-server
+    volumes:
+      - ./server/public/uploads:/usr/share/nginx/html/uploads
 
 volumes:
   mongo_data:
