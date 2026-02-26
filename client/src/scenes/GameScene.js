@@ -54,7 +54,7 @@ export default class GameScene extends Phaser.Scene {
 
     create() {
         // [추가] 외부 이미지(uploads) 로딩 시 CORS 보안 차단 방지
-        this.load.setCrossOrigin('anonymous');
+        this.load.setCORS('anonymous');
         this.load.on('loaderror', (file) => {
             console.error(`>>> [Loader Error] Failed to load: ${file.key} from ${file.url}`);
         });

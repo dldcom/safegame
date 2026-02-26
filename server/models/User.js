@@ -38,7 +38,7 @@ const UserSchema = new mongoose.Schema({
         }
     ],
     // 게이미피케이션 필드 강화
-    points: { type: Number, default: 0 }, // 아이템 구매용 재화
+    points: { type: Number, default: 10000 }, // 아이템 구매용 재화
     exp: { type: Number, default: 0 },
     totalExp: { type: Number, default: 0 },
     level: { type: Number, default: 1 },
