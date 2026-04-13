@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const Character = require('../models/Character');
+const prisma = require('../lib/prisma');
 
 // 이미지 저장 경로 설정
 const storage = multer.diskStorage({
@@ -34,15 +34,13 @@ router.post('/upload', upload.single('characterImage'), async (req, res) => {
 
         const { name, atlasData } = req.body;
 
-        // 데이터베이스에 캐릭터 정보 저장
-        const newCharacter = new Character({
-            name: name || '무명 캐릭터',
-            imagePath: `/uploads/characters/${req.file.filename}`,
-            atlasData: typeof atlasData === 'string' ? JSON.parse(atlasData) : atlasData
-            // creatorId는 나중에 토큰 연동 시 추가 가능
+        const newCharacter = await prisma.character.create({
+            data: {
+                name: name || '무명 캐릭터',
+                imagePath: `/uploads/characters/${req.file.filename}`,
+                atlasData: typeof atlasData === 'string' ? JSON.parse(atlasData) : atlasData
+            }
         });
-
-        await newCharacter.save();
 
         res.status(201).json({
             message: '캐릭터가 성공적으로 저장되었습니다.',
@@ -59,14 +57,14 @@ router.post('/upload', upload.single('characterImage'), async (req, res) => {
 });
 
 // 캐릭터 변경 API (1000 포인트 소모)
-const User = require('../models/User'); // User 모델 필요
-
 router.post('/change-skin', async (req, res) => {
     try {
         const { userId, characterId } = req.body;
+        const id = parseInt(userId);
+        const charId = parseInt(characterId);
         const COST = 1000;
 
-        const user = await User.findById(userId);
+        const user = await prisma.user.findUnique({ where: { id } });
         if (!user) return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
 
         if (user.points < COST) {
@@ -74,19 +72,20 @@ router.post('/change-skin', async (req, res) => {
         }
 
         // 포인트 차감 및 캐릭터 변경
-        user.points -= COST;
-        user.customCharacterId = characterId;
-        await user.save();
-
-        // 변경된 캐릭터 정보 포함하여 다시 불러오기
-        const updatedUser = await User.findById(userId).populate('customCharacterId');
+        const updatedUser = await prisma.user.update({
+            where: { id },
+            data: {
+                points: { decrement: COST },
+                customCharacterId: charId
+            },
+            include: { customCharacter: true }
+        });
 
         res.json({
             message: '캐릭터가 변경되었습니다!',
             user: {
-                points: updatedUser.points || 0, // 누락된 포인트 추가
-                customCharacter: updatedUser.customCharacterId,
-                // 기존 필드들 유지
+                points: updatedUser.points,
+                customCharacter: updatedUser.customCharacter,
                 exp: updatedUser.exp,
                 level: updatedUser.level,
                 totalExp: updatedUser.totalExp,
@@ -103,7 +102,9 @@ router.post('/change-skin', async (req, res) => {
 // 모든 캐릭터 목록 조회 (회원가입 및 변경 시 사용)
 router.get('/list', async (req, res) => {
     try {
-        const characters = await Character.find().sort({ createdAt: -1 });
+        const characters = await prisma.character.findMany({
+            orderBy: { createdAt: 'desc' }
+        });
         res.json(characters);
     } catch (error) {
         console.error('Character List Fetch Error:', error);

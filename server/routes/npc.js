@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const Npc = require('../models/Npc');
+const prisma = require('../lib/prisma');
 
 // 이미지 저장 경로 설정
 const storage = multer.diskStorage({
@@ -34,14 +34,13 @@ router.post('/upload', upload.single('npcImage'), async (req, res) => {
 
         const { name, atlasData } = req.body;
 
-        // 데이터베이스에 NPC 정보 저장
-        const newNpc = new Npc({
-            name: name || '무명 NPC',
-            imagePath: `/uploads/npcs/${req.file.filename}`,
-            atlasData: typeof atlasData === 'string' ? JSON.parse(atlasData) : atlasData
+        const newNpc = await prisma.npc.create({
+            data: {
+                name: name || '무명 NPC',
+                imagePath: `/uploads/npcs/${req.file.filename}`,
+                atlasData: typeof atlasData === 'string' ? JSON.parse(atlasData) : atlasData
+            }
         });
-
-        await newNpc.save();
 
         res.status(201).json({
             message: 'NPC가 성공적으로 저장되었습니다.',
@@ -59,7 +58,9 @@ router.post('/upload', upload.single('npcImage'), async (req, res) => {
 // 모든 NPC 목록 조회
 router.get('/list', async (req, res) => {
     try {
-        const npcs = await Npc.find().sort({ createdAt: -1 });
+        const npcs = await prisma.npc.findMany({
+            orderBy: { createdAt: 'desc' }
+        });
         res.json(npcs);
     } catch (error) {
         console.error('NPC List Fetch Error:', error);
@@ -70,7 +71,9 @@ router.get('/list', async (req, res) => {
 // 특정 NPC 조회
 router.get('/:name', async (req, res) => {
     try {
-        const npc = await Npc.findOne({ name: req.params.name });
+        const npc = await prisma.npc.findFirst({
+            where: { name: req.params.name }
+        });
         if (!npc) return res.status(404).json({ message: 'NPC를 찾을 수 없습니다.' });
         res.json(npc);
     } catch (error) {

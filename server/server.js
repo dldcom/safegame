@@ -2,16 +2,13 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const mongoose = require('mongoose');
+const prisma = require('./lib/prisma');
 const cors = require('cors');
 require('dotenv').config();
 
-// --- MongoDB Connection ---
-const DB_NAME = 'safegame';
-const MONGO_URI = process.env.MONGO_URI || `mongodb://admin:safe1234@database:27017/${DB_NAME}?authSource=admin`;
-
-mongoose.connect(MONGO_URI, { family: 4 }) // IPv4 강제 설정으로 윈도우 지연 방지
-    .then(() => console.log('MongoDB Connected...'))
+// --- PostgreSQL Connection Check ---
+prisma.$connect()
+    .then(() => console.log('PostgreSQL Connected via Prisma...'))
     .catch(err => console.log('DB Connection Error:', err));
 // --------------------------
 
@@ -20,7 +17,6 @@ app.use(cors()); // CORS 허용 추가
 app.use(express.json({ limit: '50mb' })); // 용량 제한 상향 (AI 맵 이미지 대응)
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// [확인용 로거 제거됨]
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
@@ -124,7 +120,7 @@ io.on('connection', (socket) => {
         handlePlayerLeave(socket, roomId);
     });
 
-    // 5. 레디 상태변경 [NEW]
+    // 5. 레디 상태변경
     socket.on('playerReady', (roomId) => {
         const room = rooms[roomId];
         if (!room) return;
@@ -139,7 +135,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 6. 게임 시작 [NEW]
+    // 6. 게임 시작
     socket.on('startGame', (roomId) => {
         const room = rooms[roomId];
         if (!room) return;
@@ -147,7 +143,6 @@ io.on('connection', (socket) => {
         // 방장만 시작할 수 있음
         if (room.hostId !== socket.id) return;
 
-        // 모든 인원이 레디했는지 확인 (방장 제외 혹은 포함 - 보통 방장은 자동 레디 혹은 시작버튼으로 취급)
         const allReady = room.players.every(p => p.role === 'host' || p.isReady);
 
         if (allReady) {
@@ -160,7 +155,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 7. 대기실 채팅 및 감정표현 [NEW]
+    // 7. 대기실 채팅 및 감정표현
     socket.on('sendChatMessage', (data) => {
         const { roomId, message, senderName } = data;
         console.log(`[Chat] ${senderName} in ${roomId}: ${message}`);
@@ -211,13 +206,8 @@ io.on('connection', (socket) => {
         }
     };
 
-    // ----------------------
-    // [수정] 소켓 연결 시 즉시 플레이어를 생성하던 코드를 제거했습니다.
-    // 이제 플레이어는 'joinGame' 이벤트를 통해 명시적으로 게임에 진입할 때만 생성됩니다.
-
     socket.on('joinLobby', () => {
         console.log(`[Socket] Player ${socket.id} joined lobby.`);
-        // 로비에서는 전체 플레이어 목록이 아닌 필요한 정보만 송수신하도록 추후 최적화 가능
     });
 
     socket.on('disconnect', (reason) => {
@@ -230,13 +220,9 @@ io.on('connection', (socket) => {
         });
 
         delete socketToUser[socket.id];
-        // players[username]은 세션 복구를 위해 일단 유지 (서버 재시작 전까지)
 
         io.emit('playerDisconnected', socket.id);
     });
-
-    // 기존의 글로벌 레디 로직은 제거하거나 유지 (여기서는 방 단위 로직으로 대체되었으므로 제거 권장)
-    // socket.on('playerReady', () => { ... });
 
     socket.on('joinGame', (data) => {
         const { roomId, username, skin, titleName, customCharacter } = data;
@@ -254,11 +240,10 @@ io.on('connection', (socket) => {
 
         socket.join(roomId);
         socket.roomId = roomId;
-        socketToUser[socket.id] = cleanName; // 매핑 저장
+        socketToUser[socket.id] = cleanName;
 
         // 1. 플레이어 데이터 생성 또는 업데이트
         if (!players[cleanName]) {
-            // 무작위 색상 할당 (너무 밝지 않은 색상 위주)
             const randomColor = Math.floor(Math.random() * 16777215);
             players[cleanName] = {
                 username: cleanName,
@@ -272,7 +257,6 @@ io.on('connection', (socket) => {
                 customCharacter: customCharacter || null
             };
         } else {
-            // 이미 존재한다면 소켓 ID만 최신화 (세션 복구)
             players[cleanName].playerId = socket.id;
             players[cleanName].roomId = roomId;
             players[cleanName].skin = skin || players[cleanName].skin || 'skin_default';
@@ -296,21 +280,17 @@ io.on('connection', (socket) => {
             });
         }
 
-        // 3. 현재 방의 정보 수집 및 전송 [핵심 수정: 방 명단을 기준으로 수집하여 고스트 방지]
+        // 3. 현재 방의 정보 수집 및 전송
         const playersInRoom = {};
         room.players.forEach(rp => {
             const pData = players[rp.name];
             if (pData) {
-                // 클라이언트는 소켓 ID를 키로 기대하므로 방에 저장된 최신 ID 사용
                 playersInRoom[rp.id] = { ...pData, playerId: rp.id };
             }
         });
 
         console.log(`>>> [joinGame] Initializing player ${cleanName} with ID ${socket.id}. Room count: ${room.players.length}`);
-        // [핵심] 본인에게만 직접 "너는 이 데이터로 시작해"라고 알려줌
         socket.emit('initPlayer', players[cleanName]);
-
-        // 전체 목록도 함께 전송
         socket.emit('currentPlayers', playersInRoom);
         socket.to(roomId).emit('newPlayer', players[cleanName]);
     });
@@ -343,7 +323,6 @@ io.on('connection', (socket) => {
 
         const room = rooms[roomId];
         if (room) {
-            // 방 플레이어 데이터에 점수와 시간 업데이트
             const p = room.players.find(p => p.name === username);
             if (p) {
                 p.score = score;
@@ -351,7 +330,6 @@ io.on('connection', (socket) => {
                 p.finished = true;
             }
 
-            // 실시간 랭킹 계산
             const rankings = room.players
                 .filter(p => p.finished)
                 .sort((a, b) => b.score - a.score || a.time - b.time)

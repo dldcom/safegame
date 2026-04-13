@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+}
+
+model User {
+  id              Int             @id @default(autoincrement())
+  username        String          @unique
+  password        String
+  role            Role            @default(STUDENT)
+  characterSkin   String          @default("character_default")
+  customCharacter Character?      @relation("UserCharacter", fields: [customCharacterId], references: [id])
+  customCharacterId Int?
+  gold            Int             @default(0)
+  points          Int             @default(10000)
+  exp             Int             @default(0)
+  totalExp        Int             @default(0)
+  level           Int             @default(1)
+  equippedSkin    String          @default("skin_default")
+  equippedTitle   String          @default("초보 구조대")
+  itemCollection  String[]
+  clearedStages   Int[]
+  quizProgress    Int             @default(0)
+  createdAt       DateTime        @default(now())
+  inventory       UserInventory[]
+  progress        UserProgress[]
+
+  @@map("users")
+}
+
+model UserInventory {
+  id       Int     @id @default(autoincrement())
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   Int
+  itemId   String
+  name     String
+  category String
+  equipped Boolean @default(false)
+
+  @@map("user_inventory")
+}
+
+model UserProgress {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  stageNum  Int
+  isCleared Boolean  @default(false)
+  topScore  Int      @default(0)
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([userId, stageNum])
+  @@map("user_progress")
+}
+
+model Character {
+  id        Int      @id @default(autoincrement())
+  name      String
+  imagePath String
+  atlasData Json
+  creatorId Int?
+  createdAt DateTime @default(now())
+  users     User[]   @relation("UserCharacter")
+
+  @@map("characters")
+}
+
+model Map {
+  id        Int      @id @default(autoincrement())
+  mapId     String   @unique
+  title     String
+  author    String
+  content   Json
+  createdAt DateTime @default(now())
+
+  @@map("maps")
+}
+
+model Npc {
+  id        Int      @id @default(autoincrement())
+  name      String
+  imagePath String
+  atlasData Json
+  creatorId Int?
+  createdAt DateTime @default(now())
+
+  @@map("npcs")
+}

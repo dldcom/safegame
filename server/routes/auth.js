@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const prisma = require('../lib/prisma');
+const { hashPassword, comparePassword } = require('../lib/password');
 
 // [POST] 회원가입
 router.post('/register', async (req, res) => {
@@ -10,16 +11,19 @@ router.post('/register', async (req, res) => {
         console.log('Register attempt:', { username, role, customCharacterId });
 
         // 이미 존재하는 유저인지 확인
-        let user = await User.findOne({ username });
-        if (user) return res.status(400).json({ message: '이미 존재하는 아이디입니다.' });
+        const existing = await prisma.user.findUnique({ where: { username } });
+        if (existing) return res.status(400).json({ message: '이미 존재하는 아이디입니다.' });
 
-        user = new User({
-            username,
-            password,
-            role,
-            customCharacterId: customCharacterId || null
+        const hashedPw = await hashPassword(password);
+
+        await prisma.user.create({
+            data: {
+                username,
+                password: hashedPw,
+                role: role === 'teacher' ? 'TEACHER' : 'STUDENT',
+                customCharacterId: customCharacterId ? parseInt(customCharacterId) : null
+            }
         });
-        await user.save();
 
         res.status(201).json({ message: '회원가입 성공!' });
     } catch (err) {
@@ -36,16 +40,19 @@ router.post('/login', async (req, res) => {
         console.log(`>>> [Login Start] User: ${username}`);
 
         const dbStart = Date.now();
-        const user = await User.findOne({ username }).populate('customCharacterId');
+        const user = await prisma.user.findUnique({
+            where: { username },
+            include: { customCharacter: true }
+        });
         console.log(`>>> [Step 1] DB FindOne: ${Date.now() - dbStart}ms`);
 
         if (!user) {
             return res.status(400).json({ message: '사용자를 찾을 수 없습니다.' });
         }
 
-        // 2. 비밀번호 비교 (Bcrypt 연산 시간 측정)
+        // 2. 비밀번호 비교
         const bcryptStart = Date.now();
-        const isMatch = await user.comparePassword(password);
+        const isMatch = await comparePassword(password, user.password);
         console.log(`>>> [Step 2] Bcrypt Compare: ${Date.now() - bcryptStart}ms`);
 
         if (!isMatch) {
@@ -55,7 +62,7 @@ router.post('/login', async (req, res) => {
         // 3. JWT 토큰 발급
         const tokenStart = Date.now();
         const token = jwt.sign(
-            { id: user._id, role: user.role },
+            { id: user.id, role: user.role },
             process.env.JWT_SECRET || 'safe_secret_key',
             { expiresIn: '1d' }
         );
@@ -64,17 +71,17 @@ router.post('/login', async (req, res) => {
         res.json({
             token,
             user: {
-                id: user._id,
+                id: user.id,
                 username: user.username,
-                role: user.role,
-                points: user.points || 0,
-                exp: user.exp || 0,
-                totalExp: user.totalExp || 0,
-                level: user.level || 1,
-                itemCollection: user.itemCollection || [],
-                clearedStages: user.clearedStages || [],
-                quizProgress: user.quizProgress || 0,
-                customCharacter: user.customCharacterId // populated data
+                role: user.role.toLowerCase(),
+                points: user.points,
+                exp: user.exp,
+                totalExp: user.totalExp,
+                level: user.level,
+                itemCollection: user.itemCollection,
+                clearedStages: user.clearedStages,
+                quizProgress: user.quizProgress,
+                customCharacter: user.customCharacter
             }
         });
 

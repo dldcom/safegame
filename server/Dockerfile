@@ -13,8 +13,11 @@ RUN npm install
 # 5. 서버의 모든 소스 코드를 박스 안으로 복사
 COPY . .
 
-# 6. 서버가 사용할 포트 번호 예고
+# 6. Prisma 클라이언트 생성
+RUN npx prisma generate
+
+# 7. 서버가 사용할 포트 번호 예고
 EXPOSE 3001
 
-# 7. 박스가 켜지면 서버 실행!
+# 8. 박스가 켜지면 서버 실행!
 CMD ["node", "server.js"]

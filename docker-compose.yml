@@ -1,20 +1,21 @@
 version: '3.8'
 
 services:
-  # 1. MongoDB Database Box
+  # 1. PostgreSQL Database
   database:
-    image: mongo:latest
+    image: postgres:16-alpine
     container_name: safegame_db
     restart: always
     ports:
-      - "27017:27017"
+      - "5432:5432"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASS}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
-      - mongo_data:/data/db
+      - pg_data:/var/lib/postgresql/data
 
-  # 2. Safegame Node.js Server Box
+  # 2. Safegame Node.js Server
   app-server:
     image: dldcom/safegame-server:latest
     container_name: safegame_server
@@ -22,14 +23,14 @@ services:
     ports:
       - "${PORT}:${PORT}"
     environment:
-      - MONGO_URI=mongodb://${MONGO_USER}:${MONGO_PASS}@database:27017/${MONGO_DB}?authSource=admin
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASS}@database:5432/${DB_NAME}
       - JWT_SECRET=${JWT_SECRET}
     depends_on:
       - database
     volumes:
       - ./server/public/uploads:/usr/src/app/public/uploads
 
-  # 3. Safegame React Client Box
+  # 3. Safegame React Client
   client:
     image: dldcom/safegame-client:latest
     container_name: safegame_client
@@ -42,4 +43,4 @@ services:
       - ./server/public/uploads:/usr/share/nginx/html/uploads
 
 volumes:
-  mongo_data:
+  pg_data:

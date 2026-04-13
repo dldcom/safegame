@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const User = require('../models/User');
+const prisma = require('../lib/prisma');
 
 // 상점 아이템 리스트 (정적 데이터로 우선 관리)
 const SHOP_ITEMS = [
@@ -21,7 +21,12 @@ router.get('/items', (req, res) => {
 router.post('/buy', async (req, res) => {
     try {
         const { userId, itemId } = req.body;
-        const user = await User.findById(userId);
+        const id = parseInt(userId);
+
+        const user = await prisma.user.findUnique({
+            where: { id },
+            include: { inventory: true }
+        });
         if (!user) return res.status(404).json({ message: '유저를 찾을 수 없습니다.' });
 
         const item = SHOP_ITEMS.find(i => i.id === itemId);
@@ -36,16 +41,29 @@ router.post('/buy', async (req, res) => {
             return res.status(400).json({ message: '포인트가 부족합니다.' });
         }
 
-        // 구매 처리
-        user.points -= item.price;
-        user.inventory.push({
-            itemId: item.id,
-            name: item.name,
-            category: item.category
+        // 구매 처리 (트랜잭션)
+        const updated = await prisma.$transaction(async (tx) => {
+            await tx.user.update({
+                where: { id },
+                data: { points: { decrement: item.price } }
+            });
+
+            await tx.userInventory.create({
+                data: {
+                    userId: id,
+                    itemId: item.id,
+                    name: item.name,
+                    category: item.category
+                }
+            });
+
+            return tx.user.findUnique({
+                where: { id },
+                include: { inventory: true }
+            });
         });
 
-        await user.save();
-        res.json({ message: '구매 완료!', user });
+        res.json({ message: '구매 완료!', user: updated });
     } catch (err) {
         console.error('Buy Item Error:', err);
         res.status(500).json({ message: '서버 오류' });
@@ -56,22 +74,32 @@ router.post('/buy', async (req, res) => {
 router.post('/equip', async (req, res) => {
     try {
         const { userId, itemId, category } = req.body;
-        const user = await User.findById(userId);
+        const id = parseInt(userId);
+
+        const user = await prisma.user.findUnique({
+            where: { id },
+            include: { inventory: true }
+        });
         if (!user) return res.status(404).json({ message: '유저를 찾을 수 없습니다.' });
 
         // 인벤토리에 있는지 확인
-        const hasItem = user.inventory.some(i => i.itemId === itemId);
-        if (!hasItem) return res.status(400).json({ message: '소유하지 않은 아이템입니다.' });
+        const ownedItem = user.inventory.find(i => i.itemId === itemId);
+        if (!ownedItem) return res.status(400).json({ message: '소유하지 않은 아이템입니다.' });
 
+        const updateData = {};
         if (category === 'skin') {
-            user.equippedSkin = itemId;
+            updateData.equippedSkin = itemId;
         } else if (category === 'title') {
-            const item = user.inventory.find(i => i.itemId === itemId);
-            user.equippedTitle = item.name;
+            updateData.equippedTitle = ownedItem.name;
         }
 
-        await user.save();
-        res.json({ message: '장착 완료!', user });
+        const updated = await prisma.user.update({
+            where: { id },
+            data: updateData,
+            include: { inventory: true }
+        });
+
+        res.json({ message: '장착 완료!', user: updated });
     } catch (err) {
         console.error('Equip Item Error:', err);
         res.status(500).json({ message: '서버 오류' });
