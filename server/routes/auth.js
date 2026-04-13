@@ -68,6 +68,10 @@ router.post('/login', async (req, res) => {
         );
         console.log(`>>> [Step 3] Token Sign: ${Date.now() - tokenStart}ms`);
 
+        const inventory = await prisma.userInventory.findMany({
+            where: { userId: user.id }
+        });
+
         res.json({
             token,
             user: {
@@ -78,10 +82,13 @@ router.post('/login', async (req, res) => {
                 exp: user.exp,
                 totalExp: user.totalExp,
                 level: user.level,
+                equippedSkin: user.equippedSkin,
+                equippedTitle: user.equippedTitle,
                 itemCollection: user.itemCollection,
                 clearedStages: user.clearedStages,
                 quizProgress: user.quizProgress,
-                customCharacter: user.customCharacter
+                customCharacter: user.customCharacter,
+                inventory: inventory
             }
         });
 

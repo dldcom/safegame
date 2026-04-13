@@ -530,7 +530,7 @@ export default class GameScene extends Phaser.Scene {
 
             // 카메라 설정 강화
             this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
-            this.cameras.main.setZoom(1);
+            this.cameras.main.setZoom(1.5);
             this.cameras.main.fadeIn(500);
 
             this.physics.add.collider(this.player, this.wallLayer);

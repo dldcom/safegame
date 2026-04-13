@@ -30,6 +30,9 @@ const MapMaker = () => {
     const [objectSuffix, setObjectSuffix] = useState('');
     const [mapList, setMapList] = useState([]);
     const [showLoadModal, setShowLoadModal] = useState(false);
+    const [wallThreshold, setWallThreshold] = useState(40);
+    const [wallColor, setWallColor] = useState({ r: 0, g: 0, b: 0 });
+    const [detectMode, setDetectMode] = useState('dark'); // 'dark' or 'color'
     const [mapData, setMapData] = useState({
         collision: Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
         spawns: [{ id: Date.now(), name: 'playerspawn', x: 200, y: 200 }]
@@ -352,6 +355,76 @@ const MapMaker = () => {
         }
     }, [MAP_WIDTH, MAP_HEIGHT]);
 
+    const autoDetectWalls = () => {
+        if (!mapImage) {
+            alert('먼저 맵 이미지를 업로드하세요.');
+            return;
+        }
+        pushToHistory();
+        setStatusMessage('벽 자동 감지 중...');
+
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = MAP_WIDTH;
+            canvas.height = MAP_HEIGHT;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, MAP_WIDTH, MAP_HEIGHT);
+            const imageData = ctx.getImageData(0, 0, MAP_WIDTH, MAP_HEIGHT);
+            const prevCollision = mapData.collision;
+            const newCollision = [...prevCollision];
+
+            for (let i = 0; i < MAP_WIDTH * MAP_HEIGHT; i++) {
+                const pi = i * 4;
+                const r = imageData.data[pi];
+                const g = imageData.data[pi + 1];
+                const b = imageData.data[pi + 2];
+                const a = imageData.data[pi + 3];
+
+                let isWall = false;
+                if (detectMode === 'dark') {
+                    const brightness = (r + g + b) / 3;
+                    isWall = brightness < (wallThreshold * 2.55);
+                } else {
+                    const dist = Math.sqrt(
+                        Math.pow(r - wallColor.r, 2) +
+                        Math.pow(g - wallColor.g, 2) +
+                        Math.pow(b - wallColor.b, 2)
+                    );
+                    isWall = dist < (wallThreshold * 1.5);
+                }
+
+                if (a < 50) isWall = false;
+                if (isWall) newCollision[i] = 1;
+            }
+
+            setMapData(prev => ({ ...prev, collision: newCollision }));
+            setStatusMessage('벽 자동 감지 완료!');
+            setTimeout(() => setStatusMessage(''), 2000);
+        };
+        img.src = mapImage;
+    };
+
+    const pickWallColor = async () => {
+        if (!('EyeDropper' in window)) {
+            alert('최신 브라우저를 사용해주세요.');
+            return;
+        }
+        const dropper = new window.EyeDropper();
+        try {
+            const result = await dropper.open();
+            const hex = result.sRGBHex;
+            setWallColor({
+                r: parseInt(hex.slice(1, 3), 16),
+                g: parseInt(hex.slice(3, 5), 16),
+                b: parseInt(hex.slice(5, 7), 16)
+            });
+            setDetectMode('color');
+        } catch (e) {
+            console.log('Pick cancelled');
+        }
+    };
+
     const handleClearMap = () => {
         if (window.confirm('맵의 모든 벽을 지우시겠습니까?')) {
             pushToHistory();
@@ -404,6 +477,49 @@ const MapMaker = () => {
                     <label htmlFor="map-upload" className="mm-upload-btn">
                         🖼️ 맵 이미지 불러오기
                     </label>
+
+                    <div className="mm-auto-detect" style={{ marginTop: '25px', padding: '15px', background: '#f0faf5', border: '2px solid #00BFA5', borderRadius: '8px' }}>
+                        <label className="mm-label" style={{ color: '#00BFA5', marginBottom: '10px' }}>벽 자동 감지</label>
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                            <button
+                                className="mm-tool-btn"
+                                style={{ flex: 1, fontSize: '11px', background: detectMode === 'dark' ? '#1a1a1a' : '#fff', color: detectMode === 'dark' ? '#fff' : '#1a1a1a' }}
+                                onClick={() => setDetectMode('dark')}
+                            >
+                                어두운색 = 벽
+                            </button>
+                            <button
+                                className="mm-tool-btn"
+                                style={{ flex: 1, fontSize: '11px', background: detectMode === 'color' ? '#1a1a1a' : '#fff', color: detectMode === 'color' ? '#fff' : '#1a1a1a' }}
+                                onClick={() => setDetectMode('color')}
+                            >
+                                지정색 = 벽
+                            </button>
+                        </div>
+                        {detectMode === 'color' && (
+                            <button
+                                className="mm-tool-btn"
+                                onClick={pickWallColor}
+                                style={{ width: '100%', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                            >
+                                <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '1px solid #ccc', background: `rgb(${wallColor.r},${wallColor.g},${wallColor.b})` }}></div>
+                                벽 색상 추출
+                            </button>
+                        )}
+                        <div style={{ marginBottom: '10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: 700, color: '#888', marginBottom: '4px' }}>
+                                <span>감지 감도</span><span>{wallThreshold}</span>
+                            </div>
+                            <input type="range" min="5" max="100" value={wallThreshold} onChange={(e) => setWallThreshold(parseInt(e.target.value))} style={{ width: '100%' }} />
+                        </div>
+                        <button
+                            className="mm-tool-btn"
+                            onClick={autoDetectWalls}
+                            style={{ width: '100%', background: '#00BFA5', color: '#fff', border: 'none', fontWeight: 800, fontSize: '13px' }}
+                        >
+                            🔍 벽 자동 감지 실행
+                        </button>
+                    </div>
 
                     <label className="mm-label" style={{ marginTop: '30px' }}>편집 모드</label>
                     <div className="mm-tool-grid" style={{ marginBottom: '10px' }}>

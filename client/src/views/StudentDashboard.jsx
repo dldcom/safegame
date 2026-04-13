@@ -122,7 +122,7 @@ const StudentDashboard = () => {
 
         try {
             const res = await axios.post('/api/character/change-skin', {
-                userId: user.id || user._id,
+                userId: user.id,
                 characterId: selectedCharId
             });
             alert(res.data.message);
@@ -499,9 +499,9 @@ const StudentDashboard = () => {
                                 <div className="skin-grid-v">
                                     {allCharacters.map(char => (
                                         <div
-                                            key={char._id}
-                                            className={`skin-card-v ${selectedCharId === char._id ? 'active' : ''}`}
-                                            onClick={() => setSelectedCharId(char._id)}
+                                            key={char.id}
+                                            className={`skin-card-v ${selectedCharId === char.id ? 'active' : ''}`}
+                                            onClick={() => setSelectedCharId(char.id)}
                                         >
                                             <div className="skin-img-wrap">
                                                 <div
@@ -629,7 +629,11 @@ const StudentDashboard = () => {
                 .frame-inner.skin_fire { box-shadow: 0 0 20px rgba(255, 92, 0, 0.6); border-color: #FF5C00; background: #fff5f0; }
                 .frame-inner.skin_water { box-shadow: 0 0 20px rgba(0, 242, 255, 0.6); border-color: #00F2FF; background: #f0fbff; }
                 .frame-inner.skin_gold { box-shadow: 0 0 30px rgba(255, 215, 0, 0.8); border-color: #FFD700; background: #fffdf0; }
-                .avatar-preview-v { transform: scale(1.2); }
+                .avatar-preview-v { transform: scale(1.2); transition: transform 0.2s; }
+                .character-frame-mini:hover .avatar-preview-v {
+                    animation: charWalk 0.6s steps(6) infinite;
+                    transform: scale(1.3);
+                }
                 .change-char-btn {
                     background: var(--color-text); color: #fff; border: none;
                     padding: 8px 16px; font-size: 11px; font-weight: 700; cursor: pointer;

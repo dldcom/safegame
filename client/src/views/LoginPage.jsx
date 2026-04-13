@@ -40,7 +40,7 @@ const LoginPage = () => {
             const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
             const payload = isLogin
                 ? { username, password }
-                : { username, password, role, customCharacterId: selectedChar?._id };
+                : { username, password, role, customCharacterId: selectedChar?.id };
             const res = await axios.post(endpoint, payload);
 
             if (isLogin) {
@@ -128,8 +128,8 @@ const LoginPage = () => {
                                     <div className="char-selection-grid">
                                         {characters.map(char => (
                                             <div
-                                                key={char._id}
-                                                className={`char-item ${selectedChar?._id === char._id ? 'active' : ''}`}
+                                                key={char.id}
+                                                className={`char-item ${selectedChar?.id === char.id ? 'active' : ''}`}
                                                 onClick={(e) => {
                                                     e.preventDefault();
                                                     console.log('Character selected:', char.name);

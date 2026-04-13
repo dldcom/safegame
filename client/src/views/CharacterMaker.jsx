@@ -104,10 +104,10 @@ const CharacterMaker = () => {
         const cropHeight = endY - startY;
         const sw = Math.floor(img.width / 3);
 
+        // 1. 모든 뷰의 바운딩 박스를 먼저 계산
+        const bounds = {};
         ['front', 'side', 'back'].forEach((view, index) => {
             const sx = index * sw;
-
-            // 1. 해당 영역에서 캐릭터 바운딩 박스 찾기 (배경 무시)
             let minX = sw, maxX = 0, minY = cropHeight, maxY = 0, hasContent = false;
             for (let y = startY; y < endY; y++) {
                 for (let x = 0; x < sw; x++) {
@@ -116,10 +116,7 @@ const CharacterMaker = () => {
                     const g = fullImageData.data[i + 1];
                     const b = fullImageData.data[i + 2];
                     const a = fullImageData.data[i + 3];
-
                     const dist = Math.sqrt(Math.pow(targetBgColor.r - r, 2) + Math.pow(targetBgColor.g - g, 2) + Math.pow(targetBgColor.b - b, 2));
-
-                    // 알파값이 있거나 배경색과 다를 경우 컨텐츠로 간주
                     if (a > 50 && dist > bgThreshold * 4.4) {
                         minX = Math.min(minX, x); maxX = Math.max(maxX, x);
                         minY = Math.min(minY, y - startY); maxY = Math.max(maxY, y - startY);
@@ -127,8 +124,24 @@ const CharacterMaker = () => {
                     }
                 }
             }
+            bounds[view] = { minX, maxX, minY, maxY, hasContent };
+        });
 
-            // 2. 캐릭터를 48x64 프레임에 맞게 크기 계산 및 그리기
+        // 2. 통일 스케일 계산 (가장 큰 바운딩 박스 기준)
+        let maxCw = 0, maxCh = 0;
+        Object.values(bounds).forEach(b => {
+            if (b.hasContent) {
+                maxCw = Math.max(maxCw, b.maxX - b.minX + 1);
+                maxCh = Math.max(maxCh, b.maxY - b.minY + 1);
+            }
+        });
+        const unifiedScale = Math.min((W * 0.85) / maxCw, (H * 0.85) / maxCh);
+
+        ['front', 'side', 'back'].forEach((view, index) => {
+            const sx = index * sw;
+            const { minX, maxX, minY, maxY, hasContent } = bounds[view];
+
+            // 3. 캐릭터를 48x64 프레임에 맞게 크기 계산 및 그리기
             const targetCanvas = document.createElement('canvas');
             targetCanvas.width = W;
             targetCanvas.height = H;
@@ -138,9 +151,8 @@ const CharacterMaker = () => {
             if (autoAlign) {
                 const cw = maxX - minX + 1;
                 const ch = maxY - minY + 1;
-                const scale = Math.min((W * 0.85) / cw, (H * 0.85) / ch);
-                const dw = cw * scale;
-                const dh = ch * scale;
+                const dw = cw * unifiedScale;
+                const dh = ch * unifiedScale;
                 const dx = (W - dw) / 2;
                 const dy = (H - dh) / 2;
                 targetCtx.drawImage(img, Math.floor(sx + minX), Math.floor(startY + minY), Math.floor(cw), Math.floor(ch), dx, dy, dw, dh);

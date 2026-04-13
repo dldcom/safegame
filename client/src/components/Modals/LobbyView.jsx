@@ -188,17 +188,14 @@ const LobbyView = ({ isOpen, onClose, stageName }) => {
                                 {player.role === 'host' && <span className="host-badge">HOST</span>}
 
                                 {player.customCharacter ? (
-                                    <div
-                                        className={`avatar-real-v ${player.skin || 'skin_default'}`}
-                                        style={{
-                                            backgroundImage: `url(${player.customCharacter.imagePath})`,
-                                            backgroundSize: '576px 512px',
-                                            backgroundPosition: '0 0',
-                                            width: '96px',
-                                            height: '128px',
-                                            imageRendering: 'pixelated'
-                                        }}
-                                    ></div>
+                                    <div className={`avatar-real-v ${player.skin || 'skin_default'}`}>
+                                        <div
+                                            className="lobby-char-sprite"
+                                            style={{
+                                                backgroundImage: `url(${player.customCharacter.imagePath})`,
+                                            }}
+                                        ></div>
+                                    </div>
                                 ) : (
                                     <div className={`avatar-placeholder-rect ${player.skin || 'skin_default'}`}></div>
                                 )}
@@ -428,17 +425,47 @@ const LobbyView = ({ isOpen, onClose, stageName }) => {
                 .player-slots-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
                 .player-slot { background: #fff; border: var(--border-main); display: flex; flex-direction: column; height: 280px; }
                 .player-slot.empty { background: #fafafa; border-style: dashed; opacity: 0.6; }
-                .player-slot.active { box-shadow: 6px 6px 0px #000; border-width: 2px; }
+                .player-slot.active { border-color: transparent !important; background: transparent !important; box-shadow: none !important; }
+                .player-slot.active .slot-frame { background: transparent !important; }
+                .player-slot.active .player-info-bar { background: transparent !important; border-top: none !important; }
                 
                 .slot-frame { flex: 1; display: flex; align-items: flex-end; justify-content: center; padding: 20px; position: relative; }
                 .avatar-wrapper { display: flex; flex-direction: column; align-items: center; gap: 5px; }
                 .p-title-tag { font-family: var(--font-mono); font-size: 8px; background: #FF5C00; color: #fff; padding: 2px 6px; border-radius: 10px; }
-                .avatar-placeholder-rect, .avatar-real-v { width: 96px; height: 128px; border: 2.5px solid #000; background-color: rgba(255,255,255,0.05); }
-                
-                .avatar-placeholder-rect.skin_default, .avatar-real-v.skin_default { background-color: rgba(0,0,0,0.1); }
-                .avatar-placeholder-rect.skin_fire, .avatar-real-v.skin_fire { box-shadow: 0 0 20px #FF5C00; border-color: #FF5C00; }
-                .avatar-placeholder-rect.skin_water, .avatar-real-v.skin_water { box-shadow: 0 0 20px #00f2ff; border-color: #00f2ff; }
-                .avatar-placeholder-rect.skin_gold, .avatar-real-v.skin_gold { box-shadow: 0 0 30px #FFD700; border-color: #FFD700; }
+                .avatar-placeholder-rect { width: 96px; height: 128px; border: 2.5px solid #000; background-color: rgba(255,255,255,0.05); }
+                .avatar-real-v { width: 96px; height: 128px; border: none; background: none; border-radius: 0; }
+                .lobby-char-sprite {
+                    width: 96px; height: 128px;
+                    background-size: 576px 512px;
+                    background-position: 0 0;
+                    image-rendering: pixelated;
+                    animation: lobby-walk 0.6s steps(6) infinite;
+                }
+                @keyframes lobby-walk {
+                    from { background-position: 0 0; }
+                    to { background-position: -576px 0; }
+                }
+
+                .avatar-placeholder-rect.skin_default { background-color: rgba(0,0,0,0.1); }
+                .avatar-placeholder-rect.skin_fire { box-shadow: 0 0 20px #FF5C00; border-color: #FF5C00; }
+                .avatar-placeholder-rect.skin_water { box-shadow: 0 0 20px #00f2ff; border-color: #00f2ff; }
+                .avatar-placeholder-rect.skin_gold { box-shadow: 0 0 30px #FFD700; border-color: #FFD700; }
+                .avatar-real-v.skin_fire { animation: glow-fire 2s ease-in-out infinite alternate; }
+                .avatar-real-v.skin_water { animation: glow-water 2s ease-in-out infinite alternate; }
+                .avatar-real-v.skin_gold { animation: glow-gold 1.5s ease-in-out infinite alternate; }
+
+                @keyframes glow-fire {
+                    0% { filter: drop-shadow(0 0 8px rgba(255, 92, 0, 0.5)) drop-shadow(0 0 20px rgba(255, 92, 0, 0.3)); }
+                    100% { filter: drop-shadow(0 0 18px rgba(255, 92, 0, 0.8)) drop-shadow(0 0 40px rgba(255, 92, 0, 0.5)); }
+                }
+                @keyframes glow-water {
+                    0% { filter: drop-shadow(0 0 8px rgba(0, 242, 255, 0.5)) drop-shadow(0 0 20px rgba(0, 242, 255, 0.3)); }
+                    100% { filter: drop-shadow(0 0 18px rgba(0, 242, 255, 0.8)) drop-shadow(0 0 40px rgba(0, 242, 255, 0.5)); }
+                }
+                @keyframes glow-gold {
+                    0% { filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.6)) drop-shadow(0 0 25px rgba(255, 215, 0, 0.3)); }
+                    100% { filter: drop-shadow(0 0 22px rgba(255, 215, 0, 0.9)) drop-shadow(0 0 50px rgba(255, 215, 0, 0.5)); }
+                }
 
                 .right-side-col { width: 350px; display: flex; flex-direction: column; gap: 15px; }
                 .chat-side { 
