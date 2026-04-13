@@ -7,6 +7,7 @@ import GamePage from './views/GamePage';
 import MapMaker from './views/MapMaker';
 
 import CharacterMaker from './views/CharacterMaker';
+import ItemMaker from './views/ItemMaker';
 
 const App = () => {
     return (
@@ -29,6 +30,9 @@ const App = () => {
 
                 {/* 6. 캐릭터 제작 도구 */}
                 <Route path="/character-maker" element={<CharacterMaker />} />
+
+                {/* 7. 아이템 스프라이트 제작 도구 */}
+                <Route path="/item-maker" element={<ItemMaker />} />
             </Routes>
         </Router>
     );

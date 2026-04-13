@@ -40,6 +40,10 @@ const TeacherDashboard = () => {
                         <span className="nav-num">02</span>
                         <span className="nav-text">캐릭터 제작 도구</span>
                     </div>
+                    <div className="ed-nav-link active" onClick={() => navigate('/item-maker')}>
+                        <span className="nav-num">03</span>
+                        <span className="nav-text">아이템 스프라이트 도구</span>
+                    </div>
                 </nav>
 
                 <div className="ed-user-info">
@@ -75,6 +79,21 @@ const TeacherDashboard = () => {
                         <div className="card-content">
                             <label className="card-label">TOOL 02</label>
                             <h2 className="card-title">캐릭터 제작</h2>
+                            <div className="card-footer">
+                                <span className="explore-text">도구 열기</span>
+                                <div className="arrow-icon">→</div>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    <motion.div
+                        className="tool-card-wide item-theme"
+                        whileHover={{ y: -5 }}
+                        onClick={() => navigate('/item-maker')}
+                    >
+                        <div className="card-content">
+                            <label className="card-label">TOOL 03</label>
+                            <h2 className="card-title">아이템 스프라이트</h2>
                             <div className="card-footer">
                                 <span className="explore-text">도구 열기</span>
                                 <div className="arrow-icon">→</div>
@@ -279,6 +298,7 @@ const TeacherDashboard = () => {
                 /* Accent Styles on Hover */
                 .map-theme:hover .card-title { color: #2563eb; }
                 .char-theme:hover .card-title { color: #059669; }
+                .item-theme:hover .card-title { color: #d97706; }
             `}</style>
         </div>
     );

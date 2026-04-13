@@ -193,6 +193,7 @@ body {
 .dashboard-container,
 .teacher-container,
 .map-maker-root,
+.item-maker-container,
 .game-ui-active {
     pointer-events: auto !important;
 }

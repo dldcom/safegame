@@ -37,12 +37,14 @@ const studentRoutes = require('./routes/student');
 const shopRoutes = require('./routes/shop');
 const characterRoutes = require('./routes/character');
 const npcRoutes = require('./routes/npc');
+const itemRoutes = require('./routes/item');
 app.use('/api/auth', authRoutes);
 app.use('/api/map', mapRoutes);
 app.use('/api/student', studentRoutes);
 app.use('/api/shop', shopRoutes);
 app.use('/api/character', characterRoutes);
 app.use('/api/npc', npcRoutes);
+app.use('/api/item', itemRoutes);
 
 // Serve static files from the dist folder in production
 app.use(express.static(path.join(__dirname, '../dist')));

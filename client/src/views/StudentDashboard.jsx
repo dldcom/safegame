@@ -139,9 +139,9 @@ const StudentDashboard = () => {
     };
 
     const stages = [
-        { id: 1, name: '화상 시 대처 방법', difficulty: 'EASY', status: 'READY' },
-        { id: 2, name: '화재 대피 훈련', difficulty: 'NORMAL', status: 'READY' },
-        { id: 3, name: '재난 생존 훈련', difficulty: 'HARD', status: 'PROTOTYPE' }
+        { id: 1, name: '화상 시 대처 방법', difficulty: 'EASY', status: 'READY', description: '뜨거운 물에 데인 친구를 도와주세요.' },
+        { id: 2, name: '화재 대피 훈련', difficulty: 'NORMAL', status: 'READY', description: '화재 현장에서 안전하게 대피하세요.' },
+        { id: 3, name: '지도와 우리 지역', difficulty: 'NORMAL', status: 'READY', description: '찢어진 지도를 모아 호곡초 주변을 탐험하세요.' }
     ];
 
     const expLimit = userStats.level * 100;

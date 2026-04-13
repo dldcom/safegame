@@ -5,6 +5,7 @@ import NPC from '../objects/NPC';
 import Collectible from '../objects/Collectibles';
 import { STAGE_1_ITEMS, MISSION_STEPS, STAGE_1_QUIZ } from '../data/Stage1Data';
 import { STAGE_2_ITEMS, STAGE_2_MISSION_STEPS, STAGE_2_QUIZ } from '../data/Stage2Data';
+import { STAGE_3_ITEMS, STAGE_3_MISSION_STEPS, STAGE_3_QUIZ } from '../data/Stage3Data';
 import useGameStore, { isUIOpen } from '../store/useGameStore';
 
 export default class GameScene extends Phaser.Scene {
@@ -23,8 +24,9 @@ export default class GameScene extends Phaser.Scene {
             this.currentStep = MISSION_STEPS.STEP_0_START;
         } else if (this.currentStage === 2) {
             this.currentStep = STAGE_2_MISSION_STEPS.STEP_0_START;
+        } else if (this.currentStage === 3) {
+            this.currentStep = STAGE_3_MISSION_STEPS.STEP_0_START;
         } else {
-            // Stage 3 or others: Default to 0
             this.currentStep = 0;
         }
 
@@ -142,19 +144,41 @@ export default class GameScene extends Phaser.Scene {
         this.setupAnimations();
         this.scene.launch('UI_Scene');
 
-        // NPC 데이터를 먼저 받아온 후 오브젝트 스폰
-        fetch('/api/npc/list')
-            .then(res => res.json())
-            .then(npcs => {
+        // NPC + 아이템 데이터를 먼저 받아온 후 오브젝트 스폰
+        const fetchNpcs = fetch('/api/npc/list').then(res => res.json()).catch(() => []);
+        const fetchItems = this.currentStage === 3
+            ? fetch('/api/item/list?stageNum=3').then(res => res.json()).catch(() => [])
+            : Promise.resolve([]);
+
+        Promise.all([fetchNpcs, fetchItems]).then(([npcs, items]) => {
                 this.dbNpcs = npcs;
+                this.dbItems = items;
+
+                // Stage 3: DB 아이템 이미지를 동적 로드
+                if (this.currentStage === 3 && items.length > 0) {
+                    items.forEach(item => {
+                        if (!this.textures.exists(item.itemId)) {
+                            this.load.image(item.itemId, item.imagePath);
+                        }
+                    });
+                    this.load.once('complete', () => {
+                        this.spawnObjects(map);
+                        this.setupNetwork();
+                        this.startStage3PostSpawn();
+                    });
+                    this.load.start();
+                    return;
+                }
+
                 this.spawnObjects(map);
                 this.setupNetwork();
 
                 if (this.currentStage === 1 && !this.introStarted) {
                     this.startIntroSequence();
-                } else {
+                } else if (this.currentStage !== 3) {
                     console.log(`>>> [GameScene] Stage ${this.currentStage} started in free roam.`);
                 }
+                // Stage 3 인트로는 startStage3PostSpawn에서 처리
             })
             .catch(err => {
                 console.error(">>> [GameScene] Failed to fetch NPC list:", err);
@@ -246,7 +270,11 @@ export default class GameScene extends Phaser.Scene {
         this.events.off('useItem');
 
         this.events.on('completeMission', () => {
-            this.currentStep = MISSION_STEPS.STEP_3_REPORTED;
+            if (this.currentStage === 3) {
+                this.currentStep = STAGE_3_MISSION_STEPS.STEP_4_MAP_COMPLETE;
+            } else {
+                this.currentStep = MISSION_STEPS.STEP_3_REPORTED;
+            }
 
             const endTime = Date.now();
             const timeDiff = Math.floor((endTime - this.startTime) / 1000); // 초 단위
@@ -278,7 +306,12 @@ export default class GameScene extends Phaser.Scene {
                 this.showNextDialogue();
             } else if (this.pendingQuiz) {
                 this.pendingQuiz = false;
-                this.events.emit('openQuiz', STAGE_1_QUIZ.slice(0, 3));
+                if (this.currentStage === 3) {
+                    this.events.emit('openQuiz', this.pendingQuizData || STAGE_3_QUIZ.slice(0, 5));
+                    this.pendingQuizData = null;
+                } else {
+                    this.events.emit('openQuiz', STAGE_1_QUIZ.slice(0, 3));
+                }
             } else if (this.isWaitingForInventory) {
                 this.isWaitingForInventory = false;
                 this.events.emit('openItemSelector', {
@@ -409,7 +442,13 @@ export default class GameScene extends Phaser.Scene {
                 else if (name.startsWith('npc_')) {
                     let npcType = name.replace('npc_', '');
 
-                    // [추가] 스테이지 1의 기본 역할을 DB 캐릭터로 매핑
+                    // Stage 3: 번호 기반 이름을 실제 NPC 이름으로 매핑
+                    if (this.currentStage === 3) {
+                        const npcMap = this.getStage3NpcMap();
+                        if (npcMap[name]) npcType = npcMap[name];
+                    }
+
+                    // 스테이지 1의 기본 역할을 DB 캐릭터로 매핑
                     if (npcType === 'hurt' || npcType === 'injured' || npcType === 'npc_hurt') {
                         npcType = 'lion';
                     } else if (npcType === 'teacher' || npcType === 'teacher_npc' || npcType === 'npcspawn') {
@@ -423,29 +462,29 @@ export default class GameScene extends Phaser.Scene {
                         const textureKey = `db_npc_${dbNpc.name}`;
 
                         const spawnDynamicNpc = () => {
+                            const npcMoving = (this.currentStage === 3) || (dbNpc.name === 'doctor');
                             const npc = new NPC(this, obj.x, obj.y, textureKey, {
                                 displayName: dbNpc.name,
                                 atlasData: dbNpc.atlasData,
-                                type: (dbNpc.name === 'doctor') ? 'moving' : 'static'
+                                type: npcMoving ? 'moving' : 'static'
                             });
 
-                            // Stage 1 특정 로직: 미션 단계 판별을 위해 변수 할당
+                            // Stage 1 특정 로직
                             if (dbNpc.name === 'lion') this.injuredNpc = npc;
                             if (dbNpc.name === 'doctor') this.teacherNpc = npc;
+
+                            // 모든 NPC를 그룹에 추가
+                            if (this.npcs) this.npcs.add(npc);
                         };
 
                         if (!this.textures.exists(textureKey)) {
                             this.load.spritesheet(textureKey, dbNpc.imagePath, { frameWidth: 48, frameHeight: 64 });
                             this.load.once(`filecomplete-spritesheet-${textureKey}`, () => {
                                 spawnDynamicNpc();
-                                if (this.npcs && this.teacherNpc && dbNpc.name === 'doctor') this.npcs.add(this.teacherNpc);
-                                if (this.npcs && this.injuredNpc && dbNpc.name === 'lion') this.npcs.add(this.injuredNpc);
                             });
                             this.load.start();
                         } else {
                             spawnDynamicNpc();
-                            if (this.npcs && this.teacherNpc && dbNpc.name === 'doctor') this.npcs.add(this.teacherNpc);
-                            if (this.npcs && this.injuredNpc && dbNpc.name === 'lion') this.npcs.add(this.injuredNpc);
                         }
                     }
                     // DB에 없을 때만 기존 하드코딩된 에셋 사용 (하위 호환)
@@ -463,8 +502,15 @@ export default class GameScene extends Phaser.Scene {
                     }
                 }
                 else if (name.startsWith('item_')) {
-                    const itemType = name.replace('item_', '');
-                    console.log(`>>> [GameScene] Spawning custom item: ${itemType}`);
+                    let itemType = name.replace('item_', '');
+
+                    // Stage 3: 번호 기반 이름을 실제 아이템 ID로 매핑
+                    if (this.currentStage === 3) {
+                        const itemMap = this.getStage3ItemMap();
+                        if (itemMap[name]) itemType = itemMap[name];
+                    }
+
+                    console.log(`>>> [GameScene] Spawning item: ${itemType} at (${obj.x}, ${obj.y})`);
                     this.items.add(new Collectible(this, obj.x, obj.y, itemType));
                 }
                 else if (name === 'sinkspawn' || name === 'item_sink') {
@@ -573,6 +619,11 @@ export default class GameScene extends Phaser.Scene {
                 });
             }
 
+            // Stage 3: NPC 충돌 로직
+            if (this.currentStage === 3) {
+                this.setupStage3NpcInteractions();
+            }
+
             console.log(`>>> [GameScene] Local player spawned and colliders set up. ID: ${this.player.playerId}`);
         };
 
@@ -628,9 +679,32 @@ export default class GameScene extends Phaser.Scene {
     collectItem(player, item) {
         if (!this.inventory.includes(item.type)) {
             this.inventory.push(item.type);
-            const itemName = STAGE_1_ITEMS[item.type]?.name || item.type;
-            this.events.emit('showDialogue', `${itemName}을(를) 획득했다!`, "아이템 획득");
+
+            let itemData;
+            if (this.currentStage === 3) {
+                itemData = STAGE_3_ITEMS[item.type];
+            } else {
+                itemData = STAGE_1_ITEMS[item.type];
+            }
+
+            const itemName = itemData?.name || item.type;
+            const description = itemData?.description || '';
+            this.events.emit('showDialogue', description || `${itemName}을(를) 획득했다!`, "아이템 획득");
             this.events.emit('updateInventory', this.inventory);
+
+            // Stage 3: 나침반 획득 시 미션 진행
+            if (this.currentStage === 3 && item.type === 'compass' && this.currentStep === STAGE_3_MISSION_STEPS.STEP_0_START) {
+                this.currentStep = STAGE_3_MISSION_STEPS.STEP_1_COMPASS;
+            }
+
+            // Stage 3: 지도 조각 4개 모두 수집 시 미션 진행
+            if (this.currentStage === 3 && this.currentStep === STAGE_3_MISSION_STEPS.STEP_1_COMPASS) {
+                const mapPieces = this.inventory.filter(id => id.startsWith('map_piece_') || id.startsWith('torn_map_'));
+                if (mapPieces.length >= 4) {
+                    this.currentStep = STAGE_3_MISSION_STEPS.STEP_2_MAP_PIECES;
+                    this.events.emit('showDialogue', '지도 조각을 모두 모았다! 이제 NPC들에게 가서 퀴즈를 풀어보자.', '미션 진행');
+                }
+            }
         }
         item.collect();
     }
@@ -698,8 +772,134 @@ export default class GameScene extends Phaser.Scene {
         });
     }
 
+    // === Stage 3 매핑 테이블 ===
+    getStage3NpcMap() {
+        return {
+            'npc_1': 'map_scholar',
+            'npc_2': 'Village_Resident',
+            'npc_3': 'Church_Caretaker',
+            'npc_4': 'Park_Ranger',
+            'npc_5': 'Station_Attendant',
+            'npc_6': 'Mountain_Keeper'
+        };
+    }
+
+    getStage3ItemMap() {
+        return {
+            'item_1': 'compass',
+            'item_2': 'magnifying_glass',
+            'item_3': 'torn_map_1',
+            'item_4': 'torn_map_2',
+            'item_5': 'torn_map_3',
+            'item_6': 'torn_map_4',
+            'item_7': 'legned_card_icon',
+            'item_8': 'ruler',
+            'item_9': 'compass'  // 여분
+        };
+    }
+
+    startStage3PostSpawn() {
+        this.setupNetwork();
+        if (!this.introStarted) {
+            this.startStage3Intro();
+        }
+    }
+
+    startStage3Intro() {
+        if (this.introStarted) return;
+        this.introStarted = true;
+
+        this.time.delayedCall(1000, () => {
+            this.playStorySequence([
+                { text: "어...? 이게 뭐지? 마을 지도가 찢어져 있어!", name: "나" },
+                { text: "지도 조각이 마을 곳곳에 흩어진 것 같아.", name: "나" },
+                { text: "먼저 나침반을 찾아서 방위를 알 수 있게 하자!", name: "나" },
+                { text: "맵을 돌아다니며 나침반과 지도 조각을 모으세요.", name: "System" }
+            ]);
+        });
+    }
+
+    setupStage3NpcInteractions() {
+        // Stage 3 NPC 이름 → 퀴즈 매핑
+        const npcQuizMap = {
+            'map_scholar': { quizStart: 0, quizEnd: 4, greeting: '안녕! 나는 지도 박사란다. 지도에 대해 얼마나 알고 있니?' },
+            'Village_Resident': { quizStart: 4, quizEnd: 8, greeting: '어서와! 우리 동네에 대해 물어볼게.' },
+            'Church_Caretaker': { quizStart: 8, quizEnd: 12, greeting: '반갑구나. 지도 기호에 대해 알아볼까?' },
+            'Park_Ranger': { quizStart: 12, quizEnd: 16, greeting: '공원에 온 걸 환영해! 우리 지역에 대해 이야기해볼까?' },
+            'Station_Attendant': { quizStart: 16, quizEnd: 20, greeting: '안녕하세요! 교통과 지역에 대해 퀴즈를 낼게요.' },
+            'Mountain_Keeper': { quizStart: 20, quizEnd: 25, greeting: '산에서 왔구나. 자연환경에 대해 물어볼게.' }
+        };
+
+        // 퀴즈 통과 추적
+        if (!this.stage3QuizPassed) this.stage3QuizPassed = new Set();
+
+        this.npcs.getChildren().forEach(npc => {
+            this.physics.add.overlap(this.player, npc, () => {
+                if (isUIOpen(useGameStore.getState())) return;
+                if (npc.talkCooldown > 0) return;
+
+                const npcName = npc.displayName || '';
+                const quizInfo = npcQuizMap[npcName];
+
+                if (!quizInfo) {
+                    this.events.emit('showDialogue', '안녕!', npcName);
+                    npc.talkCooldown = 3000;
+                    return;
+                }
+
+                if (this.stage3QuizPassed.has(npcName)) {
+                    this.events.emit('showDialogue', '잘했어! 이미 내 퀴즈를 통과했구나.', npcName);
+                    npc.talkCooldown = 3000;
+                    return;
+                }
+
+                if (this.currentStep < STAGE_3_MISSION_STEPS.STEP_2_MAP_PIECES) {
+                    this.events.emit('showDialogue', '먼저 지도 조각을 모두 모아오렴!', npcName);
+                    npc.talkCooldown = 3000;
+                    return;
+                }
+
+                // 퀴즈 출제
+                this.events.emit('showDialogue', quizInfo.greeting, npcName);
+                npc.talkCooldown = 3000;
+                this.pendingQuiz = true;
+                this.pendingQuizData = STAGE_3_QUIZ.slice(quizInfo.quizStart, quizInfo.quizEnd);
+                this.pendingNpcName = npcName;
+            });
+        });
+
+        // 퀴즈 완료 이벤트
+        this.events.off('quizComplete');
+        this.events.on('quizComplete', () => {
+            if (this.currentStage === 3 && this.pendingNpcName) {
+                this.stage3QuizPassed.add(this.pendingNpcName);
+                this.pendingNpcName = null;
+
+                // 모든 NPC 퀴즈를 통과했는지 확인
+                const totalNpcs = Object.keys({
+                    'map_scholar': 1, 'Village_Resident': 1, 'Church_Caretaker': 1,
+                    'Park_Ranger': 1, 'Station_Attendant': 1, 'Mountain_Keeper': 1
+                }).length;
+
+                if (this.stage3QuizPassed.size >= totalNpcs) {
+                    this.currentStep = STAGE_3_MISSION_STEPS.STEP_3_QUIZ_COMPLETE;
+                    this.events.emit('showDialogue', '모든 퀴즈를 통과했어! 지도가 완성되었다!', '미션 완료!');
+                    this.time.delayedCall(2000, () => {
+                        this.events.emit('completeMission');
+                    });
+                } else {
+                    const remaining = totalNpcs - this.stage3QuizPassed.size;
+                    this.events.emit('showDialogue', `잘했어! 아직 ${remaining}명의 NPC가 남았어.`, '퀴즈 통과');
+                }
+            }
+        });
+    }
+
     update(time, delta) {
         [this.injuredNpc, this.teacherNpc].forEach(n => n?.update(time, delta));
+        if (this.currentStage === 3 && this.npcs) {
+            this.npcs.getChildren().forEach(n => n?.update(time, delta));
+        }
 
         // 모든 원격 플레이어 업데이트 (이름표 위치 갱신 등)
         if (this.otherPlayers) {
