@@ -5,7 +5,19 @@ import NPC from '../objects/NPC';
 import Collectible from '../objects/Collectibles';
 import { STAGE_1_ITEMS, MISSION_STEPS, STAGE_1_QUIZ } from '../data/Stage1Data';
 import { STAGE_2_ITEMS, STAGE_2_MISSION_STEPS, STAGE_2_QUIZ } from '../data/Stage2Data';
-import { STAGE_3_ITEMS, STAGE_3_MISSION_STEPS, STAGE_3_QUIZ } from '../data/Stage3Data';
+import {
+    STAGE_3_ITEMS,
+    STAGE_3_MISSION_STEPS,
+    STAGE_3_QUIZ,
+    STAGE_3_NPC_QUIZ_RANGES,
+    STAGE_3_NPC_DIALOGUES,
+    STAGE_3_INTRO,
+    STAGE_3_ENDING,
+    STAGE_3_COMPASS_HINT,
+    STAGE_3_CONTOUR_PUZZLE,
+    STAGE_3_TERRAIN_SORT,
+    STAGE_3_REGION_PROFILE
+} from '../data/Stage3Data';
 import useGameStore, { isUIOpen } from '../store/useGameStore';
 
 export default class GameScene extends Phaser.Scene {
@@ -270,7 +282,13 @@ export default class GameScene extends Phaser.Scene {
         this.events.off('useItem');
 
         this.events.on('completeMission', () => {
+            // Stage 3: 퀴즈 통과는 NPC 단위이므로, 전체 스테이지 클리어 조건이 충족되지 않았으면
+            // completeMission을 quizComplete로 라우팅
             if (this.currentStage === 3) {
+                if (!this.stage3ReadyToClear) {
+                    this.events.emit('quizComplete');
+                    return;
+                }
                 this.currentStep = STAGE_3_MISSION_STEPS.STEP_4_MAP_COMPLETE;
             } else {
                 this.currentStep = MISSION_STEPS.STEP_3_REPORTED;
@@ -692,17 +710,23 @@ export default class GameScene extends Phaser.Scene {
             this.events.emit('showDialogue', description || `${itemName}을(를) 획득했다!`, "아이템 획득");
             this.events.emit('updateInventory', this.inventory);
 
-            // Stage 3: 나침반 획득 시 미션 진행
+            // Stage 3: 나침반 획득 → 방위 힌트 HUD 활성화
             if (this.currentStage === 3 && item.type === 'compass' && this.currentStep === STAGE_3_MISSION_STEPS.STEP_0_START) {
                 this.currentStep = STAGE_3_MISSION_STEPS.STEP_1_COMPASS;
+                useGameStore.getState().setCompassHint({
+                    active: true,
+                    direction: STAGE_3_COMPASS_HINT.direction,
+                    message: STAGE_3_COMPASS_HINT.dialogue
+                });
             }
 
-            // Stage 3: 지도 조각 4개 모두 수집 시 미션 진행
+            // Stage 3: 지도 조각 4개 모두 수집 → 방위 힌트 제거 & 다음 단계
             if (this.currentStage === 3 && this.currentStep === STAGE_3_MISSION_STEPS.STEP_1_COMPASS) {
                 const mapPieces = this.inventory.filter(id => id.startsWith('map_piece_') || id.startsWith('torn_map_'));
                 if (mapPieces.length >= 4) {
                     this.currentStep = STAGE_3_MISSION_STEPS.STEP_2_MAP_PIECES;
-                    this.events.emit('showDialogue', '지도 조각을 모두 모았다! 이제 NPC들에게 가서 퀴즈를 풀어보자.', '미션 진행');
+                    useGameStore.getState().setCompassHint({ active: false });
+                    this.events.emit('showDialogue', '지도 조각을 모두 모았다! 이제 6명의 수호자를 찾아가 이야기를 나누자.', '미션 진행');
                 }
             }
         }
@@ -810,28 +834,14 @@ export default class GameScene extends Phaser.Scene {
         this.introStarted = true;
 
         this.time.delayedCall(1000, () => {
-            this.playStorySequence([
-                { text: "어...? 이게 뭐지? 마을 지도가 찢어져 있어!", name: "나" },
-                { text: "지도 조각이 마을 곳곳에 흩어진 것 같아.", name: "나" },
-                { text: "먼저 나침반을 찾아서 방위를 알 수 있게 하자!", name: "나" },
-                { text: "맵을 돌아다니며 나침반과 지도 조각을 모으세요.", name: "System" }
-            ]);
+            this.playStorySequence(STAGE_3_INTRO);
         });
     }
 
     setupStage3NpcInteractions() {
-        // Stage 3 NPC 이름 → 퀴즈 매핑
-        const npcQuizMap = {
-            'map_scholar': { quizStart: 0, quizEnd: 4, greeting: '안녕! 나는 지도 박사란다. 지도에 대해 얼마나 알고 있니?' },
-            'Village_Resident': { quizStart: 4, quizEnd: 8, greeting: '어서와! 우리 동네에 대해 물어볼게.' },
-            'Church_Caretaker': { quizStart: 8, quizEnd: 12, greeting: '반갑구나. 지도 기호에 대해 알아볼까?' },
-            'Park_Ranger': { quizStart: 12, quizEnd: 16, greeting: '공원에 온 걸 환영해! 우리 지역에 대해 이야기해볼까?' },
-            'Station_Attendant': { quizStart: 16, quizEnd: 20, greeting: '안녕하세요! 교통과 지역에 대해 퀴즈를 낼게요.' },
-            'Mountain_Keeper': { quizStart: 20, quizEnd: 25, greeting: '산에서 왔구나. 자연환경에 대해 물어볼게.' }
-        };
-
-        // 퀴즈 통과 추적
         if (!this.stage3QuizPassed) this.stage3QuizPassed = new Set();
+        if (!this.stage3ContourSolved) this.stage3ContourSolved = false;
+        if (!this.stage3TerrainSortSolved) this.stage3TerrainSortSolved = false;
 
         this.npcs.getChildren().forEach(npc => {
             this.physics.add.overlap(this.player, npc, () => {
@@ -839,31 +849,42 @@ export default class GameScene extends Phaser.Scene {
                 if (npc.talkCooldown > 0) return;
 
                 const npcName = npc.displayName || '';
-                const quizInfo = npcQuizMap[npcName];
+                const range = STAGE_3_NPC_QUIZ_RANGES[npcName];
+                const dialogues = STAGE_3_NPC_DIALOGUES[npcName];
 
-                if (!quizInfo) {
+                if (!range || !dialogues) {
                     this.events.emit('showDialogue', '안녕!', npcName);
                     npc.talkCooldown = 3000;
                     return;
                 }
 
                 if (this.stage3QuizPassed.has(npcName)) {
-                    this.events.emit('showDialogue', '잘했어! 이미 내 퀴즈를 통과했구나.', npcName);
+                    this.events.emit('showDialogue', dialogues.pass, npcName);
                     npc.talkCooldown = 3000;
                     return;
                 }
 
                 if (this.currentStep < STAGE_3_MISSION_STEPS.STEP_2_MAP_PIECES) {
-                    this.events.emit('showDialogue', '먼저 지도 조각을 모두 모아오렴!', npcName);
+                    this.events.emit('showDialogue', dialogues.before_pieces, npcName);
                     npc.talkCooldown = 3000;
                     return;
                 }
 
+                // === 미션 2: 산지기 접근 시 등고선 퍼즐 ===
+                if (npcName === 'Mountain_Keeper' && !this.stage3ContourSolved) {
+                    npc.talkCooldown = 3000;
+                    useGameStore.getState().openContourPuzzle(STAGE_3_CONTOUR_PUZZLE, () => {
+                        this.stage3ContourSolved = true;
+                        this.events.emit('showDialogue', '완만한 길로 올라왔구나. 이제 나에게 이야기하렴.', npcName);
+                    });
+                    return;
+                }
+
                 // 퀴즈 출제
-                this.events.emit('showDialogue', quizInfo.greeting, npcName);
+                this.events.emit('showDialogue', dialogues.greeting, npcName);
                 npc.talkCooldown = 3000;
                 this.pendingQuiz = true;
-                this.pendingQuizData = STAGE_3_QUIZ.slice(quizInfo.quizStart, quizInfo.quizEnd);
+                this.pendingQuizData = STAGE_3_QUIZ.slice(range.start, range.end);
                 this.pendingNpcName = npcName;
             });
         });
@@ -871,27 +892,53 @@ export default class GameScene extends Phaser.Scene {
         // 퀴즈 완료 이벤트
         this.events.off('quizComplete');
         this.events.on('quizComplete', () => {
-            if (this.currentStage === 3 && this.pendingNpcName) {
-                this.stage3QuizPassed.add(this.pendingNpcName);
-                this.pendingNpcName = null;
+            if (this.currentStage !== 3 || !this.pendingNpcName) return;
 
-                // 모든 NPC 퀴즈를 통과했는지 확인
-                const totalNpcs = Object.keys({
-                    'map_scholar': 1, 'Village_Resident': 1, 'Church_Caretaker': 1,
-                    'Park_Ranger': 1, 'Station_Attendant': 1, 'Mountain_Keeper': 1
-                }).length;
+            this.stage3QuizPassed.add(this.pendingNpcName);
+            const passedNpc = this.pendingNpcName;
+            this.pendingNpcName = null;
 
-                if (this.stage3QuizPassed.size >= totalNpcs) {
-                    this.currentStep = STAGE_3_MISSION_STEPS.STEP_3_QUIZ_COMPLETE;
-                    this.events.emit('showDialogue', '모든 퀴즈를 통과했어! 지도가 완성되었다!', '미션 완료!');
-                    this.time.delayedCall(2000, () => {
-                        this.events.emit('completeMission');
+            const totalNpcs = Object.keys(STAGE_3_NPC_QUIZ_RANGES).length;
+            const passDialogue = STAGE_3_NPC_DIALOGUES[passedNpc]?.pass || '잘했어!';
+
+            // === 미션 3: 산지기 퀴즈 통과 후 지형 분류 미니게임 ===
+            if (passedNpc === 'Mountain_Keeper' && !this.stage3TerrainSortSolved) {
+                this.events.emit('showDialogue', passDialogue, passedNpc);
+                this.time.delayedCall(1500, () => {
+                    useGameStore.getState().openTerrainSort(STAGE_3_TERRAIN_SORT, () => {
+                        this.stage3TerrainSortSolved = true;
+                        this.checkStage3AllCleared();
                     });
-                } else {
-                    const remaining = totalNpcs - this.stage3QuizPassed.size;
-                    this.events.emit('showDialogue', `잘했어! 아직 ${remaining}명의 NPC가 남았어.`, '퀴즈 통과');
-                }
+                });
+                return;
             }
+
+            if (this.stage3QuizPassed.size >= totalNpcs) {
+                this.checkStage3AllCleared();
+            } else {
+                const remaining = totalNpcs - this.stage3QuizPassed.size;
+                this.events.emit('showDialogue', `${passDialogue} (남은 수호자: ${remaining}명)`, '퀴즈 통과');
+            }
+        });
+    }
+
+    checkStage3AllCleared() {
+        const totalNpcs = Object.keys(STAGE_3_NPC_QUIZ_RANGES).length;
+        if (this.stage3QuizPassed.size < totalNpcs) return;
+
+        // === 미션 4: 모든 NPC 클리어 시 지리 정보 프로필 ===
+        this.currentStep = STAGE_3_MISSION_STEPS.STEP_3_QUIZ_COMPLETE;
+        this.time.delayedCall(1000, () => {
+            useGameStore.getState().openRegionProfile(STAGE_3_REGION_PROFILE, () => {
+                // 프로필 완성 후 엔딩 시퀀스 → 진짜 게임 종료
+                this.stage3ReadyToClear = true;
+                this.playStorySequence(STAGE_3_ENDING);
+                this.events.once('uiDialogueEnded', () => {
+                    if (this.dialogueQueue.length === 0) {
+                        this.events.emit('completeMission');
+                    }
+                });
+            });
         });
     }
 

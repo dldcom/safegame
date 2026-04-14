@@ -91,8 +91,13 @@ const QuizModal = () => {
         if (gameScene) {
             gameScene.isUIOpen = false;
             if (isSuccess) {
-                gameScene.events.emit('completeMission');
-                gameScene.events.emit('showDialogue', "모든 테스트를 통과했어! 정말 대단해. \n이제 학교는 안전해.", "미션 클리어!");
+                // Stage 3는 NPC별 퀴즈 단위이므로 미션 클리어 대사를 쓰지 않고 씬이 직접 처리
+                if (gameScene.currentStage === 3) {
+                    gameScene.events.emit('quizComplete');
+                } else {
+                    gameScene.events.emit('completeMission');
+                    gameScene.events.emit('showDialogue', "모든 테스트를 통과했어! 정말 대단해. \n이제 학교는 안전해.", "미션 클리어!");
+                }
             } else {
                 gameScene.events.emit('showDialogue', "체력이 모두 소진되어 실패했어...\n다시 도전해보자.", "게임 오버");
             }

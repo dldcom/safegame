@@ -1,10 +1,14 @@
 import React from 'react';
 import Hearts from './HUD/Hearts';
 import InventoryHUD from './HUD/InventoryHUD';
+import CompassHint from './HUD/CompassHint';
 import Dialogue from '../components/Dialogue/Dialogue';
 import InventoryModal from './Modals/InventoryModal';
 import ResultModal from './Modals/ResultModal';
 import QuizModal from './Modals/QuizModal';
+import ContourPuzzleModal from './Modals/ContourPuzzleModal';
+import TerrainSortModal from './Modals/TerrainSortModal';
+import RegionProfileModal from './Modals/RegionProfileModal';
 import ActionButton from './HUD/ActionButton';
 import OxygenGauge from './HUD/OxygenGauge';
 import LobbyView from './Modals/LobbyView';
@@ -13,7 +17,7 @@ import { AnimatePresence } from 'framer-motion';
 
 const GameUI = () => {
     const gameStarted = useGameStore((state) => state.gameStarted);
-    const { inventoryModal, quiz, gameResult } = useGameStore();
+    const { inventoryModal, quiz, gameResult, contourPuzzle, terrainSort, regionProfile } = useGameStore();
 
     return (
         <div id="ui-root">
@@ -25,6 +29,7 @@ const GameUI = () => {
                         <Hearts />
                         <OxygenGauge />
                         <InventoryHUD />
+                        <CompassHint />
                         <Dialogue />
                         <ActionButton />
                     </div>
@@ -41,6 +46,18 @@ const GameUI = () => {
 
             <AnimatePresence>
                 {gameStarted && gameResult.isOpen && <ResultModal key="result-modal" />}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {gameStarted && contourPuzzle.isOpen && <ContourPuzzleModal key="contour-modal" />}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {gameStarted && terrainSort.isOpen && <TerrainSortModal key="terrain-modal" />}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {gameStarted && regionProfile.isOpen && <RegionProfileModal key="profile-modal" />}
             </AnimatePresence>
         </div>
     );

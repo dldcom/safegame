@@ -47,6 +47,48 @@ const useGameStore = create((set) => ({
         score: 0,
         rankings: [] // [{ username, score, time }]
     },
+    compassHint: {
+        active: false,
+        direction: '',
+        message: ''
+    },
+    contourPuzzle: {
+        isOpen: false,
+        data: null,
+        onSolve: null
+    },
+    terrainSort: {
+        isOpen: false,
+        data: null,
+        onSolve: null
+    },
+    regionProfile: {
+        isOpen: false,
+        data: null,
+        onSolve: null
+    },
+
+    setCompassHint: (hint) => set((state) => ({
+        compassHint: { ...state.compassHint, ...hint }
+    })),
+    openContourPuzzle: (data, onSolve) => set({
+        contourPuzzle: { isOpen: true, data, onSolve }
+    }),
+    closeContourPuzzle: () => set((state) => ({
+        contourPuzzle: { ...state.contourPuzzle, isOpen: false }
+    })),
+    openTerrainSort: (data, onSolve) => set({
+        terrainSort: { isOpen: true, data, onSolve }
+    }),
+    closeTerrainSort: () => set((state) => ({
+        terrainSort: { ...state.terrainSort, isOpen: false }
+    })),
+    openRegionProfile: (data, onSolve) => set({
+        regionProfile: { isOpen: true, data, onSolve }
+    }),
+    closeRegionProfile: () => set((state) => ({
+        regionProfile: { ...state.regionProfile, isOpen: false }
+    })),
 
     setGameResult: (result) => set((state) => ({
         gameResult: { ...state.gameResult, ...result }
@@ -94,6 +136,9 @@ const useGameStore = create((set) => ({
 export const isUIOpen = (state) =>
     state.dialogue.isOpen ||
     state.quiz.isOpen ||
-    state.inventoryModal.isOpen;
+    state.inventoryModal.isOpen ||
+    state.contourPuzzle.isOpen ||
+    state.terrainSort.isOpen ||
+    state.regionProfile.isOpen;
 
 export default useGameStore;
